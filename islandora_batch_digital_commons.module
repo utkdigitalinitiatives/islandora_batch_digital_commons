@@ -1,0 +1,103 @@
+<?php
+
+/**
+ * @file
+ * Module for Batch ingests.
+ */
+define('ISLANDORA_BATCH_DIGITAL_COMMONS_DELIMITER',',');
+define('ISLANDORA_BATCH_DIGITAL_COMMONS_ENCLOSURE','"');
+define('ISLANDORA_BATCH_DIGITAL_COMMONS_ESCAPE','"');
+
+/**
+ * Function to handle preprocessing.
+ */
+function islandora_batch_digital_commons_handle_preprocessor(IslandoraBatchPreprocessor $preprocessor) {
+  return $preprocessor->preprocess();
+}
+
+/**
+ * Generate and set the batch operations.
+ *
+ * After calling this, it will be necessary to call one of the functions which
+ * actually execute the batch, such as batch_process(),
+ * drush_backend_batch_process() or background_batch_process_batch().
+ *
+ * Queries the database for preprocessed entries, and attempts to ingest them.
+ */
+function islandora_batch_digital_commons_set_operations(array $parameters) {
+  $batch = array(
+    'title' => t('Islandora Batch Ingest Digital Commons'),
+    'finished' => 'islandora_batch_finished',
+    'init_message' => t('Initializing...'),
+    'file' => drupal_get_path('module', 'islandora_batch_digital_commons') . '/includes/ingest_digital_commons.batch.inc',
+    'operations' => array(),
+    'progress_message' => t('Time elapsed: @elapsed.'),
+  );
+
+  if (isset($parameters['preprocessor'])) {
+    $batch['operations'][] = array('islandora_batch_digital_commons_ingest_preprocess', array($parameters['preprocessor']));
+  }
+  if (isset($parameters['preprocessor']) || isset($parameters['ingest_set'])) {
+    $batch['progress_message'] = t('Time elapsed: @elapsed <br/>Estimated time remaining @estimate.');
+  }
+
+  $batch['operations'][] = array('islandora_batch_digital_commons_ingest_process', array($parameters));
+
+  batch_set($batch);
+}
+
+/**
+ * Dumbly sets the batch operations and calls batch_process().
+ */
+function islandora_batch_digital_commons_ingest(array $parameters) {
+  islandora_batch_set_operations($parameters);
+  batch_process();
+}
+
+/**
+ * This should really be a callout to the code in Islandora Ingest Collections
+ * But it seems kind of odd to keep a dependency to that code here, why
+ * should they be tied together?
+ * 
+ * Retrieve data from a delimiter-separated values file
+ * The defaults assume a comma separated values file
+ *
+ * The DSV file must have the following columns:
+ *   -title
+ *   -cdm_alias (Text/Text field)
+ *   -description (Long text/Textarea (multiple rows))
+ *   -thumbnail (Image/Image)
+ *   -object_id (Text/Text field)
+ *
+ * @param string $data_file_path
+ *   The absolute filesystem path to the comma-separated-value file 
+ * @param string $delimiter_char
+ *   The optional delimiter parameter sets the field delimiter (one character only)
+ *   Default is the ',' char, separates one data cell from another
+ * @param string $enclosure_char
+ *   The optional enclosure parameter sets the field enclosure character (one character only).
+ *   The Default is '"' char, encapsulates the data cell data
+ * @param string $escape_char
+ *   The optional escape parameter sets the escape character (one character only). 
+ *   The Default is '"', provides use of enclosure char with in data cell data
+ * 
+ */
+function retrieveDataFromDsvFile($data_file_path, $delimiter_char = ISLANDORA_BATCH_DIGITAL_COMMONS_DELIMITER, 
+            $enclosure_char = ISLANDORA_BATCH_DIGITAL_COMMONS_ENCLOSURE, $escape_char = ISLANDORA_BATCH_DIGITAL_COMMONS_ESCAPE) {
+    $dsv_data = array();
+    if (($data_file_handle = fopen($data_file_path, "r")) !== FALSE) {
+        while (($dsv_row = fgetcsv($data_file_handle, 0, $delimiter_char,
+                $enclosure_char,$escape_char)) !== FALSE) {
+            $collection_data = new stdClass();
+            $collection_data->parent = strtolower($dsv_row[0]);
+            $collection_data->namespace = strtolower($dsv_row[1]);
+            $collection_data->objectId = $dsv_row[2];
+            $collection_data->pid = $collection_data->namespace . ':' . $collection_data->objectId;
+            $dsv_data[] = $collection_data;
+        }
+    } else {
+        throw new Exception("Unable to open $data_file_path");
+    }
+    return $dsv_data;
+}
+
