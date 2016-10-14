@@ -1,9 +1,10 @@
 name = Islandora Batch Digital Commons
-description = Pluggable importer of object records.
-package = Islandora Tools
+project = islandora_batch_digital_commons
+description = "Batch import the collections items from a bepress Digital Commons export using the islandora_batch framework."
+package = Islandora
+dependencies[] = tuque
 dependencies[] = islandora
-dependencies[] = islandora_xacml_editor
 dependencies[] = islandora_batch
-files[] = includes/islandora_scan_batch_digital_commons.inc
 version = 7.x-dev
 core = 7.x
+files[] = includes/islandora_scan_batch_digital_commons.inc
