@@ -334,7 +334,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject {
     private $digital_commons_document_type;
     public $title;
     // confirm this[MODS] is complete
-
+    private $mods_dom;
     /**
      * Constructor for the IslandoraScanBatchObject.
      */
@@ -357,6 +357,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject {
         $this->objectProfile['objLabel'] = substr($this->title, 0, 254);
         $this->state =  "A"; // Active, not all will be active, must determine state from metadata.xml
         $this->objectProfile['objState'] = 'A';
+        $this->addSupplementalFiles();
         $this->getThesisPDF_tmp();
 /*
         if (!isset($this['OBJ'])) {
@@ -426,6 +427,43 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject {
      */
     public function getResources() {
         return $this->resources;
+    }
+    /**
+     * will scan the list of files for any that comform to the
+     * supplementary file pattern \d+-xxx.xx .
+     * 
+     * Each file has a corresponding record in both the metadata.xml
+     * and the MODS.xml The MODS.xml provides the Datastram id 
+     * 
+     */
+    protected function addSupplementalFiles() {
+                          $mods_xpath = new DOMXPath($this->mods_dom);
+                  $mods_xpath->registerNamespace('m', 'http://www.loc.gov/mods/v3');
+                  
+                  $mods_title = $mods_xpath->evaluate('string(//m:mods/m:titleInfo/m:title/text())');
+                  $mods_xpath->evaluate('/m:mods/m:relatedItem[@type=\"constituent\"]/(concat(m:titleInfo/m:title/text(), \' ::  \', m:physicalDescription/m:internetMediaType/text(), \' ::  \', m:note[@displayLabel=\"supplemental_file\"]/text()))');
+                  // Assign the label of the object based on the full title;
+                  $this->title = $mods_title;
+        $thesis_file_info;
+        foreach ($this->objectInfo->getFileArray() as $file_info) {
+            if ($file_info->getName() === 'fulltext') {
+                $thesis_file_info = $file_info;
+                break;
+            }
+        }
+        $thesis = file_get_contents($thesis_file_info->getUri());
+        if ($thesis) {
+            $thesis_datastream = $this->constructDatastream('PDF', 'M');
+            $thesis_datastream->mimetype = 'application/pdf';
+            $thesis_datastream->label = $this->label;
+            
+            $thesis_datastream->checksumType = 'SHA-256';
+            $thesis_datastream->state = "A";
+            $thesis_datastream->setContentFromFile($thesis_file_info->getUri());
+
+        } else {
+            throw new Exception($objectInfo->getCollection() . " " . getObjectId() . " Does not have a fulltext file!");
+        }
     }
     
     /**
@@ -516,9 +554,9 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject {
             if ($mods_file_info) {
                 $xml = file_get_contents($mods_file_info->getUri());
                 if ($xml) {
-                  $mods_doc = new DOMDocument();
-                  $mods_doc->loadXML($xml);
-                  $mods_xpath = new DOMXPath($mods_doc);
+                  $this->mods_dom = new DOMDocument();
+                  $this->mods_dom->loadXML($xml);
+                  $mods_xpath = new DOMXPath($this->mods_dom);
                   $mods_xpath->registerNamespace('m', 'http://www.loc.gov/mods/v3');
                   
                   $mods_title = $mods_xpath->evaluate('string(//m:mods/m:titleInfo/m:title/text())');
@@ -531,6 +569,12 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject {
  
 
                   $mods_datastream->label = $this->label . "_MODS";
+                  
+                  // we need to build a structure based from the mods
+                  // relatedItem type="constituent"
+                  // that will help identify information about 
+                  // supplementary files associated with the object
+                  
                 }
                 $mods_datastream->setContentFromFile($mods_file_info->getUri(), FALSE);
 
