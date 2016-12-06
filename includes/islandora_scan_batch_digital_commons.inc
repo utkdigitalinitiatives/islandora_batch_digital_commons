@@ -411,7 +411,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
             $this->addDigitalCommonsXMLDatastream();
             $this->addModsDatastream();
             $this->addDCDatastream();
-            $this->objectProfile['objLabel'] = substr($this->objectInfo->getTitle(), 0, 254);
+            $this->objectProfile['objLabel'] = substr($this->getModsTitle(), 0, 254);
 
             // not all objects will be active, some may be in progress to publication.
 
@@ -420,20 +420,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
             $this->addThesisPDFDatastream_tmp();
             $this->addSupplementalFiles();
             $this->addRelationships();
-            /*
-              if (!isset($this['OBJ'])) {
-              $file_array = $this->objectInfo->fileArray;
-              foreach ($file_array as $file_object) {
-              list($dsid, $mimetype) = determineDSIDAndMimetype($file_object);
-              $obj_datastream = $this->constructDatastream($dsid);
-              $obj_datastream->mimetype = $mimetype;
-              $obj_datastream->label = $obj->filename;
-              $obj_datastream->setContentFromFile($obj->uri, FALSE);
 
-              $this->ingestDatastream($obj_datastream);
-              }
-              }
-             */
             return ISLANDORA_BATCH_STATE__DONE;
         } catch (Exception $e) {
             \drupal_set_message(t('Error batch processing : %e.', array( '%e' => $e->getMessage()), 'error'));
@@ -454,7 +441,6 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
      */
     protected function addSupplementalFiles()
     {
-
         $modsSupplementaryFileMap = $this->getModsSupplementalFileMap();
         $filesystemSupplementalFiles = array();
         // use this index for tracking the prefix integer that is 
@@ -462,8 +448,6 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
         $suppl_index = 0;
 
         $this->addSupplementalModsFiles($modsSupplementaryFileMap);
-
-
     }
 
     /*
@@ -677,11 +661,11 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
         $mods_content = $this->getModsXML();
 
         $dsLabel = $this->getModsTitle();
-
+        // extract the first five words, replaceing any non-word character with _
+        // note that any non-ascii character will be listed as _, and that is unfortunate
+        $dsLabel = $this->formatDatastreamLabel($dsLabel);
         $dsLabel = $dsLabel . "_MODS";
         $this->addNewDatastreamXMLContent('MODS', 'm', "application/xml", $dsLabel, $mods_content, $mods_file_info);
-
-
     }
 
     /**
@@ -694,8 +678,6 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
      */
     protected function getModsTitle()
     {
-        $mods_file_info = null;
-        $mods_content = null;
         $mods_title = $this->objectInfo->getTitle();
         if (!isset($mods_title)) {
             $mods_dom = $this->getModsDom();
@@ -707,19 +689,13 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
                 $mods_title = $mods_xpath->evaluate('string(//m:mods/m:titleInfo/m:title/text())');
                 // Assign the label of the object based on the full title;
 
-                // extract the first five words, replaceing any non-word character with _
-                // note that any non-ascii character will be listed as _, and that is unfortunate
-                $titleArray = array_slice(preg_split('/[\W]+/', $mods_title, 6), 0, 5);
-                $mods_title = trim(join("_", $titleArray), "_");
                 $this->objectInfo->setTitle($mods_title);
 
-
             } else {
-                $this->objectInfo->setTitle("Descriptive_Metadata_Unavailable");
+                $this->objectInfo->setTitle("Descriptive Metadata Unavailable");
 
             }
         }
-
 
         return $this->objectInfo->getTitle();
     }
@@ -767,7 +743,13 @@ EOXML;
         }
         return $this->objectInfo->getModsXml();
     }
-
+    protected function formatDatastreamLabel($dsLabel) {
+        // extract the first five words, replaceing any non-word character with _
+        // note that any non-ascii character will be listed as _, and that is unfortunate
+        $dsLabel = array_slice(preg_split('/[\W]+/', $dsLabel, 6), 0, 5);
+        $dsLabel = trim(join("_", $dsLabel), "_");
+        return $dsLabel;
+    }
     /**
      * Function to get dc.
      */
@@ -790,6 +772,9 @@ EOXML;
 
             if (isset($new_dc)) {
                 $dsLabel = $this->getModsTitle();
+                // extract the first five words, replaceing any non-word character with _
+                // note that any non-ascii character will be listed as _, and that is unfortunate
+                $dsLabel = $this->formatDatastreamLabel($dsLabel);
                 $dsLabel = $dsLabel . "_DC";
                 $this->addNewDatastreamXMLContent('DC', 'x', 'application/xml', $dsLabel, $new_dc);
             }
