@@ -14,7 +14,7 @@
  */
 class DigitalCommonsObjectInfo {
         // The collection object PID of this Object
-        protected $collection; // String
+        protected $collection = null; // String
         
         // The predicate of the relationship to the collection.
         // Defaults to "isMemberOfCollection".
@@ -26,17 +26,29 @@ class DigitalCommonsObjectInfo {
         protected $collectionRelationshipUri = "info:fedora/fedora-system:def/relations-external#"; //String
         
         // The namespace of the Object to be created in Fedora
-        protected $namespace; // String
+        protected $namespace = null; // String
         
         // All the DigitalCommonsFileInfo objects that represent Digital Commons file
         protected $fileArray = array();
         
         // The unique identifier for the Object (may be combined with the namespace for 
         // a Fedora PID)
-        protected $objectId;
+        protected $objectId = null;
         
         // content models that may be associated with the object
         protected $contentModels = array();
+
+        // the document type assigned by Digital Commons, it may assist in choosing content models
+        protected $digitalCommonsDocumentType = null;
+
+        // the xml returned from the mods file, cache it so that it can be re-used in several methods
+        protected $modsXML = null;
+
+        // the dom representation of the modsXML assigned to this object
+        protected $modsDOM = null;
+
+        // the title of the fedora object as extracted from the mods document
+        protected $title = null;
 
         public function __construct() {
             
@@ -65,7 +77,40 @@ class DigitalCommonsObjectInfo {
         public function getObjectId() {
             return $this->objectId;
         }
-        
+
+        /**
+         * @return mixed
+         */
+        public function getDigitalCommonsDocumentType()
+        {
+            return $this->digitalCommonsDocumentType;
+        }
+
+        /**
+         * @return mixed
+         */
+        public function getModsXML()
+        {
+            return $this->modsXML;
+        }
+
+        /**
+         * @return null
+         */
+        public function getModsDOM()
+        {
+            return $this->modsDOM;
+        }
+
+
+        /**
+         * @return mixed
+         */
+        public function getTitle()
+        {
+            return $this->title;
+        }
+
         public function getContentModels() {
             return $this->contentModels;
         }
@@ -99,4 +144,39 @@ class DigitalCommonsObjectInfo {
         public function setContentModels($contentModels) {
             $this->contentModels = $contentModels;
         }
+
+        /**
+         * @param mixed $digitalCommonsDocumentType
+         */
+        public function setDigitalCommonsDocumentType($digitalCommonsDocumentType)
+        {
+            $this->digitalCommonsDocumentType = $digitalCommonsDocumentType;
+        }
+
+        /**
+         * @param mixed $modsXML
+         */
+        public function setModsXML($modsXML)
+        {
+            $this->modsXML = $modsXML;
+
+        }
+
+        /**
+         * @param null $modsDOM
+         */
+        public function setModsDOM($modsDOM)
+        {
+            $this->modsDOM = $modsDOM;
+        }
+
+        /**
+         * @param mixed $title
+         */
+        public function setTitle($title)
+        {
+            $this->title = $title;
+        }
+
+
 }

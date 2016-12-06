@@ -2,7 +2,6 @@ name = Islandora Batch Digital Commons
 project = islandora_batch_digital_commons
 description = "Batch import the collections items from a bepress Digital Commons export using the islandora_batch framework."
 package = Islandora
-dependencies[] = tuque
 dependencies[] = islandora
 dependencies[] = islandora_batch
 version = 7.x-dev

@@ -19,7 +19,7 @@
 
 function islandora_batch_digital_commons_ingest_process(array $parameters, &$context) {
     module_load_include('inc', 'islandora_batch', 'includes/ingest.batch');
-    islandora_batch_ingest_process($parameters, &$context);
+    islandora_batch_ingest_process($parameters, $context);
     
 }
 spl_autoload_register(function ($name) {

@@ -33,6 +33,10 @@ class DigitalCommonsFileInfo {
         // A unique identifier for the object that holds the file
         protected $objectId; //String
         
+        // A boolean indicating if the file representing this object
+        // has had a Datastream created for it
+        protected $processed = FALSE; //String
+         
         public function __construct() {
             
         }        
@@ -59,6 +63,10 @@ class DigitalCommonsFileInfo {
         public function getObjectId() {
             return $this->objectId;
         }
+        
+        public function isProcessed() {
+            return $this->processed;
+        }
 
         public function setUri($uri) {
             $this->uri = $uri;
@@ -83,6 +91,10 @@ class DigitalCommonsFileInfo {
         public function setObjectId($objectId) {
             $this->objectId = $objectId;
         }
+        public function setProcessed($processed) {
+            $this->processed = $processed;
+        }
+
 
         
 

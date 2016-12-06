@@ -14,7 +14,8 @@
  * Used as a basis for the book batch. Really, just adds a couple methods to
  * help out.
  */
-class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch {
+class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
+{
 
     // Change to FALSE if one wants to take control over hierarchical structures.
     // @todo Make zip scan respect this.
@@ -22,8 +23,8 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch {
     protected $collection_item_namespace;
     private $collection_policy_xpath_str = '/islandora:collection_policy/islandora:content_models/islandora:content_model/@pid';
     private $MAX_SUBDIRECTORY_DEPTH_FOR_COLLECTIONS = 20;
-    
     private $object_model_cache;
+
     /**
      * Constructor must be able to receive an associative array of parameters.
      *
@@ -34,7 +35,8 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch {
      *   form.
      *   Available parameters are from the particular concrete implementation.
      */
-    public function __construct(IslandoraTuque $connection, IslandoraBatchFedoraObjectModelCache $object_model_cache,  array $parameters) {
+    public function __construct(IslandoraTuque $connection, IslandoraBatchFedoraObjectModelCache $object_model_cache, array $parameters)
+    {
         parent::__construct($connection, $parameters);
         // $this->root_pid = variable_get('islandora_repository_pid', 'islandora:root');
         $this->repository = $this->connection->repository;
@@ -52,7 +54,8 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch {
      *   - filename: The filename.
      *   - name: The filename without its extension.
      */
-    protected function scan() {
+    protected function scan()
+    {
         $method = "scan" . ucfirst($this->getTargetType());
         return $this->$method($this->getTarget() . "/" . $this->getCollectionName());
     }
@@ -60,53 +63,64 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch {
     /**
      * Get the fullpath to the target directory in which a collection resides.
      */
-    protected function getTarget() {
+    protected function getTarget()
+    {
         return $this->parameters['target'];
     }
+
     /**
      * Get the target collection name. appended to the target will
      * determine the full path of where to search for target resources
-     * 
+     *
      */
-    protected function getCollectionPID() {
+    protected function getCollectionPID()
+    {
         return $this->parameters['collection_pid'];
     }
+
     /**
      * Get the target collection name. appended to the target will
      * determine the full path of where to search for target resources
-     * 
+     *
      */
-    protected function getCollectionName() {
+    protected function getCollectionName()
+    {
         return $this->parameters['collection_name'];
     }
+
     /**
-     * Get the target collection namespace. 
-     * 
+     * Get the target collection namespace.
+     *
      */
-    protected function getCollectionNamespace() {
+    protected function getCollectionNamespace()
+    {
         return $this->parameters['collection_namespace'];
     }
+
     /**
      * Get the type of the target resource.
      *
      * Prefixed with "scan_" to determine which method gets called to generate
      * the list of resource.
      */
-    protected function getTargetType() {
+    protected function getTargetType()
+    {
         return $this->parameters['type'];
     }
 
     /**
      * Allow the pattern to be set differently.
      */
-    protected static function getPattern() {
+    protected static function getPattern()
+    {
         return '/.*/';
     }
 
     /**
      * Scan the directory with file_scan_directory().
      */
-    protected function scanDirectory($target) {
+    protected function scanDirectory($target)
+    {
         $files = array();
         $target_path = drupal_realpath($target);
         $target_length = strlen($target_path) + 1;
@@ -122,7 +136,8 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch {
     /**
      * Generate output analogous to file_scan_directory().
      */
-    protected function scanZip($target) {
+    protected function scanZip($target)
+    {
         throw Exception("scanZip Does no work with islandora_scan_batch_digital_commons");
     }
 
@@ -138,13 +153,14 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch {
      * collection_relationship_pred
      * collection_relationship_uri
      * fileArray The files that will eventually turn into datastreams.
-     * 
+     *
      *
      * @param array $files
      *   An array, as returned by file_scan_directory().
      *
      */
-    function groupFiles($files) {
+    function groupFiles($files)
+    {
         $grouped = array();
 
         foreach ($files as $file) {
@@ -160,7 +176,8 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch {
         return $grouped;
     }
 
-    protected function buildObjectInfo($file_object) {
+    protected function buildObjectInfo($file_object)
+    {
         $object_info = new DigitalCommonsObjectInfo();
         // The collection PID to which the object belongs, is
         // passed in as a parameter to IslandoraScanBatchDigitalCommons
@@ -173,15 +190,15 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch {
         }
         $object_info->setNamespace($this->collection_item_namespace);
 
-        
 
         $object_info->setObjectId($file_object->getObjectId());
-        
+
         $object_info->addFileArray($file_object);
         return $object_info;
     }
 
-    protected function buildFileObject($file) {
+    protected function buildFileObject($file)
+    {
         // counter for ascending the path towards the collection level directory
         $i = 0;
         $file_object = new DigitalCommonsFileInfo();
@@ -231,14 +248,16 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch {
     /**
      * Get the name of the class to instantiate for the batch operations.
      */
-    protected static function getObjectClass() {
+    protected static function getObjectClass()
+    {
         return "IslandoraScanBatchObjectDigitalCommons";
     }
 
     /**
      * Perform preprocessing of the scanned resources.
      */
-    public function preprocess() {
+    public function preprocess()
+    {
         $files = $this->scan();
 
         if ($files === FALSE) {
@@ -260,7 +279,8 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch {
         return $added;
     }
 
-    protected function preprocessCollectionLevel($collection_array) {
+    protected function preprocessCollectionLevel($collection_array)
+    {
         try {
             $added = array();
             // get the collecton's content_models and add them to the parameters.
@@ -268,7 +288,7 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch {
             if (!$fedora_object) {
                 throw Exception($this->getCollectionPID() . " is not found. Can not proceed to ingest collection!");
             }
-           
+
             $content_models = $this->getContentModelArray($this->getCollectionPID());
 
             foreach ($collection_array as $object_id => $object_info) {
@@ -277,12 +297,13 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch {
             }
         } catch (Exception $e) {
             \drupal_set_message(t('Error ingesting Islandora collection %t : %e.', array('%t' => $this->getCollectionPID(), '%e' => $e->getMessage()), 'error'));
-            \watchdog('islandora_scan_batch_ditigal_commons', 'Error ingesting Islandora collection %t : %e.',  array('%t' => $this->getCollectionPID(), '%e' => $e->getMessage()), WATCHDOG_ERROR);
+            \watchdog('islandora_scan_batch_ditigal_commons', 'Error ingesting Islandora collection %t : %e.', array('%t' => $this->getCollectionPID(), '%e' => $e->getMessage()), WATCHDOG_ERROR);
         }
         return $added;
     }
 
-    protected function preprocessItemLevel($object_id, $object_info) {
+    protected function preprocessItemLevel($object_id, $object_info)
+    {
         $object_class = static::getObjectClass();
         $added = array();
         // second level is grouped by digital commons object_name (typically 001, 002, etc)
@@ -293,11 +314,22 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch {
         return $added;
     }
 
-    protected function getContentModelArray($fedora_object_id) {
+    /*
+     * retrieve all the content models that may be applied to this object
+     * as specified by the collection_policy of the containing collection
+     *
+     * Each content model describes the valid Datastream IDs that may be
+     * added to an object conforming to the content model.
+     *
+     * The associative array returned will have each content Model pid
+     * as the key, and the Datastreams id as an array of values
+     */
+    protected function getContentModelArray($fedora_object_id)
+    {
         $content_models = array();
 
         //$this->connection->repository->api->a->getDatastreamDissemination($this->parent->id, $this->id,null, null)
-        $collectionPolicyXml = $this->connection->repository->api->a->getDatastreamDissemination($fedora_object_id, 'COLLECTION_POLICY',null, null);
+        $collectionPolicyXml = $this->connection->repository->api->a->getDatastreamDissemination($fedora_object_id, 'COLLECTION_POLICY', null, null);
         $collection_policy_dom = new DOMDocument();
         $collection_policy_dom->loadXml($collectionPolicyXml);
         $collection_policy_xpath = new DOMXPath($collection_policy_dom);
@@ -318,27 +350,50 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch {
         }
         return $content_models;
     }
+  /**
+   * Recursively attempt to preprocess children.
+   */
+  protected function preprocessChildren(IslandoraScanBatchObjectDigitalCommons $object, $parent = NULL) {
+    $to_return = array();
 
+    // XXX: Squash exceptions and log 'em.
+    try {
+      $this->addToDatabase($object, $object->getResources(), $parent);
+      $to_return[] = $object;
+
+      foreach ($object->getChildren($this->connection) as $child) {
+        $to_return = array_merge($to_return, $this->preprocessChildren($child, $object->id));
+      }
+    }
+    catch (Exception $e) {
+      watchdog_exception('islandora_scan_batch_digital_commons', $e);
+    }
+
+    return $to_return;
+  }
 }
 
-class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject {
+class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
+{
 
     // need to create an __autoload function (?)
-    protected $baseName;
-    protected $objectInfo;
+    protected $baseName = null;
+    // DigitalCommonObjectInfo
+    protected $objectInfo = null;
     // Keys in objectInfo that are not to be datastreams.
     // Path to MODS->DC XSLT.
-    public $modsToDcTransform;
-    public $mods;
-    public $dc;
+    public $modsToDcTransform = null;
+    public $mods = null;
+    public $dc = null;
     private $digital_commons_document_type;
-    public $title;
     // confirm this[MODS] is complete
     private $mods_dom;
+
     /**
      * Constructor for the IslandoraScanBatchObject.
      */
-    public function __construct(IslandoraTuque $connection, $base_name, $object_info) {
+    public function __construct(IslandoraTuque $connection, $base_name, $object_info)
+    {
         parent::__construct($connection, $base_name, null, null);
         $this->modsToDcTransform = drupal_get_path('module', 'islandora_batch') . '/transforms/mods_to_dc.xsl';
         $this->baseName = $base_name;
@@ -349,289 +404,394 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject {
     /**
      * Function batch_process.
      */
-    public function batchProcess() {
-        // Use object_info to create some datastreams.
-        $this->getDigitalCommonsXML();
-        $this->getMods();
-        $this->getDc();
-        $this->objectProfile['objLabel'] = substr($this->title, 0, 254);
-        $this->state =  "A"; // Active, not all will be active, must determine state from metadata.xml
-        $this->objectProfile['objState'] = 'A';
-        $this->addSupplementalFiles();
-        $this->getThesisPDF_tmp();
-/*
-        if (!isset($this['OBJ'])) {
-            $file_array = $this->objectInfo->fileArray;
-            foreach ($file_array as $file_object) {
-                list($dsid, $mimetype) = determineDSIDAndMimetype($file_object);
-                $obj_datastream = $this->constructDatastream($dsid);
-                $obj_datastream->mimetype = $mimetype;
-                $obj_datastream->label = $obj->filename;
-                $obj_datastream->setContentFromFile($obj->uri, FALSE);
+    public function batchProcess()
+    {
+        try {
+            // Use object_info to create some datastreams.
+            $this->addDigitalCommonsXMLDatastream();
+            $this->addModsDatastream();
+            $this->addDCDatastream();
+            $this->objectProfile['objLabel'] = substr($this->objectInfo->getTitle(), 0, 254);
 
-                $this->ingestDatastream($obj_datastream);
-            }
+            // not all objects will be active, some may be in progress to publication.
+
+            $this->state = "A"; // Active, not all will be active, must determine state from metadata.xml
+            $this->objectProfile['objState'] = 'A';
+            $this->addThesisPDFDatastream_tmp();
+            $this->addSupplementalFiles();
+            $this->addRelationships();
+            /*
+              if (!isset($this['OBJ'])) {
+              $file_array = $this->objectInfo->fileArray;
+              foreach ($file_array as $file_object) {
+              list($dsid, $mimetype) = determineDSIDAndMimetype($file_object);
+              $obj_datastream = $this->constructDatastream($dsid);
+              $obj_datastream->mimetype = $mimetype;
+              $obj_datastream->label = $obj->filename;
+              $obj_datastream->setContentFromFile($obj->uri, FALSE);
+
+              $this->ingestDatastream($obj_datastream);
+              }
+              }
+             */
+            return ISLANDORA_BATCH_STATE__DONE;
+        } catch (Exception $e) {
+            \drupal_set_message(t('Error batch processing : %e.', array( '%e' => $e->getMessage()), 'error'));
+            \watchdog('islandora_scan_batch_ditigal_commons', '\'Error batch processing : %e.', array('%e' => $e->getMessage()), WATCHDOG_ERROR);
+            return ISLANDORA_BATCH_STATE__ERROR;
         }
-*/
-        return ISLANDORA_BATCH_STATE__DONE;
     }
 
-    /**
-     * Determine the datastream ID for the given file.
-     *
-     * Gets info from the DS-COMPOSITE-MODELs for the selected content models
-     * and attempts to match based on detected MIME-Types.
-     *
-     * @param string $name
-     *   A filename for which to determine a mimetype.
-     *
-     * @return array
-     *   An array containing two values:
-     * - Either boolean FALSE or the datastream ID, as mapped in the
-     * DS-COMPOSITE-MODELs of the selected object.
-     * - A string containing the detected mimetype of the file.
-     */
-    protected function determineDSIDAndMimetype($file_object) {
-        // Something like this would be nice to have... Need a way to indicate
-        // primary assets, though... Think about basic image, where the content
-        // model can contain "OBJ" image/jpeg, "TN" image/jpeg and so on...
-        $name = $file_object->getFilename();
-        static $mime_detect = NULL;
-        static $dsids = NULL;
-
-        if ($mime_detect === NULL || $dsids === NULL) {
-            $mime_detect = new MimeDetect();
-            module_load_include('inc', 'islandora', 'includes/utilities');
-            $models = (array) $this->objectInfo->getContentModels();
-            $dsids = islandora_get_datastreams_requirements_from_models($models);
-        }
-
-        $mimetype = $mime_detect->getMimetype($file_object->getUri());
-        if (preg_match('/^\d+\-/', $name)) {
-            
-        }
-        $dsid = FALSE;
-        // Determine which stream this should be... Uses the first matching, as
-        // received from the DC-COMPOSITE.
-        foreach ($dsids as $ds => $info) {
-            if (in_array($mimetype, $info['mime'])) {
-                $dsid = $ds;
-                break;
-            }
-        }
-        return array($dsid, $mimetype);
-    }
-
-    /**
-     * Get resources for the current object.
-     */
-    public function getResources() {
-        return $this->resources;
-    }
     /**
      * will scan the list of files for any that comform to the
      * supplementary file pattern \d+-xxx.xx .
-     * 
+     *
      * Each file has a corresponding record in both the metadata.xml
-     * and the MODS.xml The MODS.xml provides the Datastram id 
-     * 
+     * and the MODS.xml The MODS.xml provides the Datastram id
+     *
+     * Note that not all supplementary files are represented in the MODS.xml
+     *
      */
-    protected function addSupplementalFiles() {
-                          $mods_xpath = new DOMXPath($this->mods_dom);
-                  $mods_xpath->registerNamespace('m', 'http://www.loc.gov/mods/v3');
-                  
-                  $mods_title = $mods_xpath->evaluate('string(//m:mods/m:titleInfo/m:title/text())');
-                  $mods_xpath->evaluate('/m:mods/m:relatedItem[@type=\"constituent\"]/(concat(m:titleInfo/m:title/text(), \' ::  \', m:physicalDescription/m:internetMediaType/text(), \' ::  \', m:note[@displayLabel=\"supplemental_file\"]/text()))');
-                  // Assign the label of the object based on the full title;
-                  $this->title = $mods_title;
-        $thesis_file_info;
+    protected function addSupplementalFiles()
+    {
+
+        $modsSupplementaryFileMap = $this->getModsSupplementalFileMap();
+        $filesystemSupplementalFiles = array();
+        // use this index for tracking the prefix integer that is 
+        // attached to begining of any DS name
+        $suppl_index = 0;
+
+        $this->addSupplementalModsFiles($modsSupplementaryFileMap);
+
+
+    }
+
+    /*
+     * iterate through all the files that conform to the pattern
+     * for supplemental files
+     * Add them as datastreams
+     */
+    protected function addSupplementalModsFiles($modsSupplementaryFileMap)
+    {
+        // get a list of files that conform to the supplementary file pattern
+        // that have been found in the zip/filesystem path
         foreach ($this->objectInfo->getFileArray() as $file_info) {
-            if ($file_info->getName() === 'fulltext') {
-                $thesis_file_info = $file_info;
+            // supplemental files will begin with digits
+            // these digits need to be stripped off in order to conform
+            // to the files listed in the mods record
+            $supplFileInfoMatch = array();
+            if (preg_match("/^\d+\-(.+)$/", $file_info->getFilename(), $supplFileInfoMatch) && !$file_info->isProcessed()) {
+                $canonicalSupplFileName = $supplFileInfoMatch[1];
+                if (isset($modsSupplementaryFileMap[$canonicalSupplFileName])) {
+                    // add the stream and mark it as done, increment suppl_index to a higher value
+                    // if the next suppl is higher than the current suppl_index
+                    $dsName = $modsSupplementaryFileMap[$canonicalSupplFileName]->ds_name;
+                    $dsMimetype = $modsSupplementaryFileMap[$canonicalSupplFileName]->mime_type;
+                    $this->addNewDatastreamFileInfo($dsName, $dsMimetype, $canonicalSupplFileName, $file_info);
+                }
+            }
+        }
+    }
+
+    /*
+     * parse the Mods file for information about Supplementary Files
+     * The results should be an Associative Array or Map
+     * of key value pairs. 
+     * The key will be the mods titleInfo/title of the relatedItem 
+     * while the value will be an anonymous object encapsulating
+     * the MimeTYPE and and Datastream ID for the file
+     * $[title] => {[ds_name] =>,
+                   [mime_type] =>,}
+     *
+     */
+    protected function getModsSupplementalFileMap()
+    {
+        $modsSupplementalFiles = array();
+        $mods_dom = $this->getModsDom();
+        $mods_xpath = new DOMXPath($mods_dom);
+        $mods_xpath->registerNamespace('m', 'http://www.loc.gov/mods/v3');
+        $mods_related_items = $mods_xpath->query("/m:mods/m:relatedItem[@type='constituent']");
+        foreach ($mods_related_items as $related_item) {
+            $related_item_title_info_list = $related_item->getElementsByTagName('titleInfo');
+            if ($related_item_title_info_list->length != 1) {
+                $exception = $this->getFormattedException( "mods xml has more than one titleInfo for a related item: " . $this->objectInfo->getTitle());
+                throw $exception;
+            }
+            $related_item_title_info_node = $related_item_title_info_list->item(0);
+            $related_item_title_list = $related_item_title_info_node->getElementsByTagName('title');
+            if ($related_item_title_list->length != 1) {
+
+                $exception = $this->getFormattedException("The mods xml has more than one title for a related item: " . $this->objectInfo->getTitle());
+                throw $exception;
+            }
+            $title_node_node = $related_item_title_list->item(0);
+            $item_title = $title_node_node->textContent;
+
+            $physical_description_list = $related_item->getElementsByTagName('physicalDescription');
+            if ($physical_description_list->length != 1) {
+                $exception = $this->getFormattedException("The mods xml has more than one physicalDescription for a related item: " . $this->objectInfo->getTitle());
+                throw $exception;
+            }
+            $physical_description_node = $physical_description_list->item(0);
+            $internet_media_type_list = $physical_description_node->getElementsByTagName('internetMediaType');
+            if ($internet_media_type_list->length != 1) {
+                $exception = $this->getFormattedException("The mods xml has more than one internetMediaType for a related item: " . $this->objectInfo->getTitle());
+                throw $exception;
+            }
+            $internet_media_type_node = $internet_media_type_list->item(0);
+            $item_mime_type = $internet_media_type_node->textContent;
+
+            $item_ds_name = null;
+            $note_list = $related_item->getElementsByTagName('note');
+            foreach ($note_list as $note) {
+                if ($note->hasAttribute('displayLabel') && $note->getAttribute('displayLabel') === 'supplemental_file') {
+                    $item_ds_name = $note->textContent;
+                }
+            }
+            $modsSupplementalFile = new stdClass();
+            if (isset($item_ds_name)) {
+                $modsSupplementalFile->ds_name = $item_ds_name;
+                $modsSupplementalFile->mime_type = $item_mime_type;
+
+            } else {
+                $exception = $this->getFormattedException($modsSupplementalFile->getUri() . "The mods item did not have a note with the proposed DS name: " . $this->objectInfo->getTitle());
+                throw $exception;
+            }
+            $modsSupplementalFiles[$item_title] = $modsSupplementalFile;
+        }
+        return $modsSupplementalFiles;
+    }
+
+    protected function retrieveFileInfoFromName($name)
+    {
+        $returnFileInfo = null;
+        foreach ($this->objectInfo->getFileArray() as $file_info) {
+            if ($file_info->getName() === $name) {
+                $returnFileInfo = $file_info;
                 break;
             }
         }
-        $thesis = file_get_contents($thesis_file_info->getUri());
-        if ($thesis) {
-            $thesis_datastream = $this->constructDatastream('PDF', 'M');
-            $thesis_datastream->mimetype = 'application/pdf';
-            $thesis_datastream->label = $this->label;
-            
-            $thesis_datastream->checksumType = 'SHA-256';
-            $thesis_datastream->state = "A";
-            $thesis_datastream->setContentFromFile($thesis_file_info->getUri());
-
-        } else {
-            throw new Exception($objectInfo->getCollection() . " " . getObjectId() . " Does not have a fulltext file!");
-        }
+        return $returnFileInfo;
     }
-    
+
     /**
      * Function to get the Digital Commons metadata document
      * it is always named metadata.xml.
-     * 
+     *
      */
-    protected function getThesisPDF_tmp() {
-        $thesis_file_info;
-        foreach ($this->objectInfo->getFileArray() as $file_info) {
-            if ($file_info->getName() === 'fulltext') {
-                $thesis_file_info = $file_info;
-                break;
-            }
-        }
-        $thesis = file_get_contents($thesis_file_info->getUri());
-        if ($thesis) {
-            $thesis_datastream = $this->constructDatastream('PDF', 'M');
-            $thesis_datastream->mimetype = 'application/pdf';
-            $thesis_datastream->label = $this->label;
-            
-            $thesis_datastream->checksumType = 'SHA-256';
-            $thesis_datastream->state = "A";
-            $thesis_datastream->setContentFromFile($thesis_file_info->getUri());
+    protected function addThesisPDFDatastream_tmp()
+    {
 
+        $thesis_file_info = $this->retrieveFileInfoFromName('fulltext');
+
+        if (!$thesis_file_info->isProcessed()) {
+            $this->addNewDatastreamFileInfo('PDF', 'application/pdf', $this->objectInfo->getTitle(), $thesis_file_info);
         } else {
-            throw new Exception($objectInfo->getCollection() . " " . getObjectId() . " Does not have a fulltext file!");
+            $exception = $this->getFormattedException($thesis_file_info->getUri() . "Does not have a fulltext file!");
+            throw $exception;
         }
     }
+
+    protected function addNewDatastreamFileInfo($dsName, $dsMimetype, $dsLabel, $file_info)
+    {
+        $datastream = $this->constructDatastream($dsName, 'm');
+        $datastream->mimetype = $dsMimetype;
+        $datastream->label = $dsLabel;
+
+        $datastream->checksumType = 'SHA-256';
+        $datastream->state = "A";
+        $datastream->setContentFromFile($file_info->getUri());
+        if (!isset($datastream->content)) {
+            $exception = $this->getFormattedException($file_info->getUri() . " Unable to read content!");
+            throw $exception;
+        }
+        $this->ingestDatastream($datastream);
+        $file_info->setProcessed(TRUE);
+    }
+
+    protected function addNewDatastreamXMLContent($dsName, $dsType, $dsMimetype, $dsLabel, $xmlContent, $file_info = null)
+    {
+        $datastream = $this->constructDatastream($dsName, $dsType);
+        $datastream->mimetype = $dsMimetype;
+        $datastream->label = $dsLabel;
+
+        $datastream->checksumType = 'SHA-256';
+        $datastream->state = "A";
+        $datastream->content = $xmlContent;
+
+        $this->ingestDatastream($datastream);
+        if (isset($file_info)) {
+            $file_info->setProcessed(TRUE);
+        }
+    }
+
     /**
      * Function to get the Digital Commons metadata document
      * it is always named metadata.xml.
-     * 
+     * The function will also add the Digital Commons metadata as
+     * a datastream to the object
+     *
      */
-    protected function getDigitalCommonsXML() {
-        $digital_commons_xml_file_info;
-        foreach ($this->objectInfo->getFileArray() as $file_info) {
-            if ($file_info->getName() === 'metadata') {
-                $digital_commons_xml_file_info = $file_info;
-                break;
-            }
+    protected function addDigitalCommonsXMLDatastream()
+    {
+        $digital_commons_xml_file_info = $this->retrieveFileInfoFromName('metadata');
+
+        if ($digital_commons_xml_file_info) {
+            $this->addNewDatastreamFileInfo('DIGITAL_COMMONS_MD', 'application/xml', 'digital_commons_metadata', $digital_commons_xml_file_info);
         }
+    }
+
+    protected function parseDigitalCommonsDocumentType()
+    {
+        $digital_commons_xml_file_info = $this->retrieveFileInfoFromName('metadata');
+
         $digital_commons_xml = file_get_contents($digital_commons_xml_file_info->getUri());
+        $digital_commons_document_type = null;
         if ($digital_commons_xml) {
-            $digital_commons_xml_datastream = $this->constructDatastream('DIGITAL_COMMONS_MD', 'X');
-            $digital_commons_xml_datastream->mimetype = 'application/xml';
-            $digital_commons_xml_datastream->label = 'digital_commons_metadata';
-            $digital_commons_xml_datastream->checksumType = 'SHA-256';
-            $digital_commons_xml_datastream->state = "A";
-            $digital_commons_xml_datastream->setContentFromFile($digital_commons_xml_file_info->getUri());
             $digital_commons_xml_dom = new DOMDocument();
             $digital_commons_xml_dom->loadXml($digital_commons_xml);
             $digital_commons_xml_xpath = new DOMXPath($digital_commons_xml_dom);
             $document_type_nodes = $digital_commons_xml_xpath->evaluate("/documents/document/document-type");
 
             foreach ($document_type_nodes as $document_type_node) {
-                $this->digital_commons_document_type = $document_type_node->nodeValue;
+                $digital_commons_document_type = $document_type_node->nodeValue;
             }
         } else {
-            throw new Exception($objectInfo->getCollection() . " " . getObjectId() . " Does not have a metadata.xml file!");
+            $exception = $this->getFormattedException("Does not have a metadata.xml file!");
+            throw $exception;
         }
+        $this->objectInfo->setDigitalCommonsDocumentType($digital_commons_document_type);
     }
+
     /**
      * Function to get the mods.
-     * 
+     *
      * for the digital commons batch upload to work correctly,
      * There must be a MODS record in the directory representing
      * the object to upload. The MODS record was transformed from
      * the metadata.xml file
      */
-    protected function getMods() {
-        $mods_file_info;
-        if (!isset($this['MODS'])) {
-            foreach ($this->objectInfo->getFileArray() as $file_info) {
-                
-                if ($file_info->getName() === 'MODS') {
-                    $mods_file_info = $file_info;
-                    break;
-                }
-            }
-            // TODO: Create the MODS datastream on this object.
-            $mods_datastream = $this->constructDatastream('MODS', 'X');
-            $mods_datastream->mimetype = 'application/xml';
-            $mods_datastream->label = 'mods_metadata';
-            $mods_datastream->checksumType = 'SHA-256';
-            $mods_datastream->state = "A";
-            // If we have an XML stream which is:
-            if ($mods_file_info) {
-                $xml = file_get_contents($mods_file_info->getUri());
-                if ($xml) {
-                  $this->mods_dom = new DOMDocument();
-                  $this->mods_dom->loadXML($xml);
-                  $mods_xpath = new DOMXPath($this->mods_dom);
-                  $mods_xpath->registerNamespace('m', 'http://www.loc.gov/mods/v3');
-                  
-                  $mods_title = $mods_xpath->evaluate('string(//m:mods/m:titleInfo/m:title/text())');
-                  // Assign the label of the object based on the full title;
-                  $this->title = $mods_title;
-                // extract the first five works, replaceing any non-word character with _
+    protected function addModsDatastream()
+    {
+        $mods_file_info = $this->retrieveFileInfoFromName('MODS');
+        $mods_content = $this->getModsXML();
+
+        $dsLabel = $this->getModsTitle();
+
+        $dsLabel = $dsLabel . "_MODS";
+        $this->addNewDatastreamXMLContent('MODS', 'm', "application/xml", $dsLabel, $mods_content, $mods_file_info);
+
+
+    }
+
+    /**
+     * Function to get the mods.
+     *
+     * for the digital commons batch upload to work correctly,
+     * There must be a MODS record in the directory representing
+     * the object to upload. The MODS record was transformed from
+     * the metadata.xml file
+     */
+    protected function getModsTitle()
+    {
+        $mods_file_info = null;
+        $mods_content = null;
+        $mods_title = $this->objectInfo->getTitle();
+        if (!isset($mods_title)) {
+            $mods_dom = $this->getModsDom();
+            if (isset($mods_dom)) {
+
+                $mods_xpath = new DOMXPath($mods_dom);
+                $mods_xpath->registerNamespace('m', 'http://www.loc.gov/mods/v3');
+
+                $mods_title = $mods_xpath->evaluate('string(//m:mods/m:titleInfo/m:title/text())');
+                // Assign the label of the object based on the full title;
+
+                // extract the first five words, replaceing any non-word character with _
                 // note that any non-ascii character will be listed as _, and that is unfortunate
-                  $titleArray = array_slice(preg_split('/[\W]+/', $mods_title , 6), 0 , 5);
-                  $this->label = trim(join("_", $titleArray), "_");
- 
+                $titleArray = array_slice(preg_split('/[\W]+/', $mods_title, 6), 0, 5);
+                $mods_title = trim(join("_", $titleArray), "_");
+                $this->objectInfo->setTitle($mods_title);
 
-                  $mods_datastream->label = $this->label . "_MODS";
-                  
-                  // we need to build a structure based from the mods
-                  // relatedItem type="constituent"
-                  // that will help identify information about 
-                  // supplementary files associated with the object
-                  
-                }
-                $mods_datastream->setContentFromFile($mods_file_info->getUri(), FALSE);
 
-                }
+            } else {
+                $this->objectInfo->setTitle("Descriptive_Metadata_Unavailable");
 
-            if (!isset($mods_datastream->content)) {
-                // If we do not yet have any XML, create a dumb MODS with just the
-                // title, and set it...
-                $title = $this->baseName;
+            }
+        }
 
-                $mods_datastream->content = <<<EOXML
+
+        return $this->objectInfo->getTitle();
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getModsDom()
+    {
+        $modsDOM = $this->objectInfo->getModsDOM();
+        if (!isset($modsDOM)) {
+            $modsXML = $this->getModsXML();
+            $modsDOM = new DOMDocument();
+            $modsDOM->loadXML($modsXML);
+            $this->objectInfo->setModsDOM($modsDOM);
+        }
+        return $modsDOM;
+    }
+    /**
+     * Function to get the mods.
+     *
+     * for the digital commons batch upload to work correctly,
+     * There must be a MODS record in the directory representing
+     * the object to upload. The MODS record was transformed from
+     * the metadata.xml file
+     */
+    protected function getModsXML()
+    {
+        $mods_xml = $this->objectInfo->getModsXml();
+        if (!isset($mods_xml)) {
+            $mods_file_info = $this->retrieveFileInfoFromName('MODS');
+            if ($mods_file_info) {
+                $mods_xml = file_get_contents($mods_file_info->getUri());
+            } else {
+                $mods_xml = <<<EOXML
 <mods xmlns:mods="http://www.loc.gov/mods/v3" xmlns="http://www.loc.gov/mods/v3">
   <titleInfo>
-    <title>$title</title>
+    <title>Title Unavailable</title>
   </titleInfo>
 </mods>
 EOXML;
             }
+            $this->objectInfo->setModsXml($mods_xml);
 
-            $this->ingestDatastream($mods_datastream);
         }
-            
-        return $this['MODS']->content;
+        return $this->objectInfo->getModsXml();
     }
 
     /**
      * Function to get dc.
      */
-    protected function getDc() {
+    protected function addDCDatastream()
+    {
         if (!isset($this['DC'])) {
             $ingest_dc = FALSE;
-            // TODO: Create the DC datastream on this object.
-            $dc_datastream = $this->constructDatastream('DC', 'X');
-            $dc_datastream->mimetype = 'application/xml';
-            $dc_datastream->label = 'dc_metadata';
-            $dc_datastream->checksumType = 'SHA-256';
-            $dc_datastream->state = "A";
             // Get the DC by transforming from MODS.
-
             // XXX: Might want to make this use a file, instead of staging the DC
             // in the database table (inside the object we serialize).
             $mods_content = $this->getMods();
             if ($mods_content) {
                 $new_dc = static::runXslTransform(
-                        array(
-                            'xsl' => $this->modsToDcTransform,
-                            'input' => $mods_content,
-                        )
+                    array(
+                        'xsl' => $this->modsToDcTransform,
+                        'input' => $mods_content,
+                    )
                 );
             }
+
             if (isset($new_dc)) {
-                $ingest_dc = TRUE;
-                $dc_datastream->content = $new_dc;
-            }
-            
-            if ($ingest_dc) {
-                $this->ingestDatastream($dc_datastream);
+                $dsLabel = $this->getModsTitle();
+                $dsLabel = $dsLabel . "_DC";
+                $this->addNewDatastreamXMLContent('DC', 'x', 'application/xml', $dsLabel, $new_dc);
             }
         }
 
@@ -641,7 +801,8 @@ EOXML;
     /**
      * Add collection and content model relationships.
      */
-    public function addRelationships() {
+    public function addRelationships()
+    {
         $collection = $this->objectInfo->getCollection();
         $predicate = $this->objectInfo->getCollectionRelationshipPred();
         $uri = $this->objectInfo->getCollectionRelationshipUri();
@@ -654,7 +815,8 @@ EOXML;
     /**
      * Add inheritXacmlFrom relationship.
      */
-    protected function inheritXacmlPolicies() {
+    protected function inheritXacmlPolicies()
+    {
         if (module_exists('islandora_xacml_editor')) {
             $collection = $this->objectInfo->getCollection();
             $collection_object = islandora_object_load($collection);
@@ -666,12 +828,24 @@ EOXML;
 
     /**
      * Add the content model relationship(s).
+     * Each object ingested should only have a single model applied
+     * How do we determine which the the correct content model to apply
+     * from the list of content models that the parent collection
+     * supports?
      */
     protected function addContentModelRelationships() {
-        $this->models = array_keys($this->objectInfo->getContentModels());
+        $content_models = array_keys($this->objectInfo->getContentModels());
+        // remove the collectionCModel, and maybe some othere?
+        $this->models = array_diff($content_models, array('islandora:collectionCModel'));
     }
 
+    protected function getFormattedException($comment ) {
+
+        return new Exception("Series name: " . $this->objectInfo->getCollection() . " - ObjectId: " . $this->objectInfo->getObjectId() . " - " .$comment);
+
+    }
 }
+
 spl_autoload_register(function ($name) {
     echo "Want to load $name.\n";
 });
