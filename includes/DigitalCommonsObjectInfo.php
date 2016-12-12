@@ -33,7 +33,7 @@ class DigitalCommonsObjectInfo {
         
         // The unique identifier for the Object (may be combined with the namespace for 
         // a Fedora PID)
-        protected $objectId = null;
+        protected $digitalCommonsObjectId = null;
         
         // content models that may be associated with the object
         protected $contentModels = array();
@@ -74,8 +74,8 @@ class DigitalCommonsObjectInfo {
             return $this->fileArray;
         }
 
-        public function getObjectId() {
-            return $this->objectId;
+        public function getDigitalCommonsObjectId() {
+            return $this->digitalCommonsObjectId;
         }
 
         /**
@@ -135,8 +135,8 @@ class DigitalCommonsObjectInfo {
             $this->fileArray = $fileArray;
         }
 
-        public function setObjectId($objectId) {
-            $this->objectId = $objectId;
+        public function setDigitalCommonsObjectId($digitalCommonsObjectId) {
+            $this->digitalCommonsObjectId = $digitalCommonsObjectId;
         }
         public function addFileArray($file) {
             $this->fileArray[] = $file;

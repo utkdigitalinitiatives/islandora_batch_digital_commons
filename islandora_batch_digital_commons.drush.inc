@@ -148,11 +148,11 @@ function drush_islandora_batch_digital_commons_scan_preprocess() {
     $cache = new IslandoraBatchFedoraObjectModelCache ($connection);
     $collections_data = retrieveDataFromDsvFile($parameters['input']);
     foreach ($collections_data as $collection) {
+        $parameters['digital_commons_series_name'] = $collection->digitalCommonsSeries;
         $parameters['collection_namespace'] = $collection->namespace;
         $parameters['collection_name'] = $collection->objectId;
         $parameters['collection_pid'] = $collection->pid;
         $parameters['namespace'] = $collection->namespace . "." . $collection->objectId;
-        print_r($parameters);
           try {
             // Could use a drush_multiple_choice() or whatever to get the list of
             // content models, if none were provided?
@@ -163,7 +163,7 @@ function drush_islandora_batch_digital_commons_scan_preprocess() {
             drush_log(t("SetId: @s", array('@s' => $preprocessor->getSetId())), "ok");
           } catch (Exception $e) {
               drupal_set_message(t('Error Processing Islandora collection objects from (PID %p).',
-                  array('%p' =>  $parameters[collection_pid]), 'error'));
+                  array('%p' =>  $parameters[collection_pid])), 'error');
               watchdog('islandora_batch_digital_commons', 'Error Processing Islandora collection objects from (PID %p).',
                   array('%p' => $parameters[collection_pid]), WATCHDOG_ERROR);
           }

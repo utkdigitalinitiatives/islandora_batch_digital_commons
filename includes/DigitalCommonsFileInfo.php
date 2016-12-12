@@ -31,7 +31,7 @@ class DigitalCommonsFileInfo {
         protected $objectDirectory; //String
         
         // A unique identifier for the object that holds the file
-        protected $objectId; //String
+        protected $digitalCommonsObjectId; //String
         
         // A boolean indicating if the file representing this object
         // has had a Datastream created for it
@@ -60,8 +60,8 @@ class DigitalCommonsFileInfo {
             return $this->objectDirectory;
         }
 
-        public function getObjectId() {
-            return $this->objectId;
+        public function getDigitalCommonsObjectId() {
+            return $this->digitalCommonsObjectId;
         }
         
         public function isProcessed() {
@@ -88,8 +88,8 @@ class DigitalCommonsFileInfo {
             $this->objectDirectory = $objectDirectory;
         }
 
-        public function setObjectId($objectId) {
-            $this->objectId = $objectId;
+        public function setDigitalCommonsObjectId($digitalCommonsObjectId) {
+            $this->digitalCommonsObjectId = $digitalCommonsObjectId;
         }
         public function setProcessed($processed) {
             $this->processed = $processed;

@@ -57,7 +57,7 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
     protected function scan()
     {
         $method = "scan" . ucfirst($this->getTargetType());
-        return $this->$method($this->getTarget() . "/" . $this->getCollectionName());
+        return $this->$method($this->getTarget() . "/" . $this->getDigitalCommonsSeriesName());
     }
 
     /**
@@ -87,7 +87,15 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
     {
         return $this->parameters['collection_name'];
     }
-
+    /**
+     * Get the target collection name. appended to the target will
+     * determine the full path of where to search for target resources
+     *
+     */
+    protected function getDigitalCommonsSeriesName()
+    {
+        return $this->parameters['digital_commons_series_name'];
+    }
     /**
      * Get the target collection namespace.
      *
@@ -165,11 +173,11 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
 
         foreach ($files as $file) {
             $file_object = $this->buildFileObject($file);
-            if (isset($grouped[$file_object->getObjectId()])) {
-                $grouped[$file_object->getObjectId()]->addFileArray($file_object);
+            if (isset($grouped[$file_object->getDigitalCommonsObjectId()])) {
+                $grouped[$file_object->getDigitalCommonsObjectId()]->addFileArray($file_object);
             } else {
                 $object_info = $this->buildObjectInfo($file_object);
-                $grouped[$file_object->getObjectId()] = $object_info;
+                $grouped[$file_object->getDigitalCommonsObjectId()] = $object_info;
             }
         }
 
@@ -191,7 +199,7 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
         $object_info->setNamespace($this->collection_item_namespace);
 
 
-        $object_info->setObjectId($file_object->getObjectId());
+        $object_info->setDigitalCommonsObjectId($file_object->getDigitalCommonsObjectId());
 
         $object_info->addFileArray($file_object);
         return $object_info;
@@ -209,12 +217,12 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
         // Each file_object represents a Fedora DataStream
         // The collection directory of each file(DS) indicates an ObjectID in Digital Commons
         $file_object->setObjectDirectory(pathinfo($file_object->getUri(), PATHINFO_DIRNAME));
-        $file_object->setObjectId(pathinfo($file_object->getObjectDirectory(), PATHINFO_FILENAME));
+        $file_object->setDigitalCommonsObjectId(pathinfo($file_object->getObjectDirectory(), PATHINFO_FILENAME));
 
-        //Many times the Collection directory is the paretn of the ObjectId directory
-        //However, on occassion the Collection directory is several levels up.
-        $collectionDirectory = pathinfo($file_object->getObjectDirectory(), PATHINFO_DIRNAME);
-        $collectionName = pathinfo($collectionDirectory, PATHINFO_FILENAME);
+        //Many times the Digital Commons Series directory is the parent of the DigitalCommonsObjectId directory
+        //However, on occassion the Series directory is several levels up.
+        $digitalCommonsSeriesDirectory = pathinfo($file_object->getObjectDirectory(), PATHINFO_DIRNAME);
+        $digitalCommonsSeriesName = pathinfo($digitalCommonsSeriesDirectory, PATHINFO_FILENAME);
 
 
         // The collection name may be several directories above the directory
@@ -231,14 +239,14 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
         // by creating an object id of vol1.iss1.1, then we are
         // able to maintain a unique key for the identity of the
         // object located in vol1/iss1/1
-        while ($collectionName !== $this->getCollectionName()) {
-            $file_object->setObjectId($collectionName . "." . $file_object->getObjectId());
+        while ($digitalCommonsSeriesName !== $this->getDigitalCommonsSeriesName()) {
+            $file_object->setDigitalCommonsObjectId($digitalCommonsSeriesName . "." . $file_object->getDigitalCommonsObjectId());
             // do not want to have an infinite loop attempting to build a unique object id
-            if ($i >= DIGITAL_COMMONS_MAX_SUBDIRECTORY_DEPTH_FOR_COLLECTIONS || $collectionDirectory === "/") {
+            if ($i >= DIGITAL_COMMONS_MAX_SUBDIRECTORY_DEPTH_FOR_COLLECTIONS || $digitalCommonsSeriesDirectory === "/") {
                 throw new Exception("target collection directory " . $this->getTarget() . " invalid for Digital Commons Dump");
             }
-            $collectionDirectory = pathinfo($collectionDirectory, PATHINFO_DIRNAME);
-            $collectionName = pathinfo($collectionDirectory, PATHINFO_FILENAME);
+            $digitalCommonsSeriesDirectory = pathinfo($digitalCommonsSeriesDirectory, PATHINFO_DIRNAME);
+            $digitalCommonsSeriesName = pathinfo($digitalCommonsSeriesDirectory, PATHINFO_FILENAME);
             ++$i;
         }
 
@@ -296,7 +304,7 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
                 $added = array_merge($added, $this->preprocessItemLevel($object_id, $object_info));
             }
         } catch (Exception $e) {
-            \drupal_set_message(t('Error ingesting Islandora collection %t : %e.', array('%t' => $this->getCollectionPID(), '%e' => $e->getMessage()), 'error'));
+            \drupal_set_message(t('Error ingesting Islandora collection %t : %e.', array('%t' => $this->getCollectionPID(), '%e' => $e->getMessage())), 'error');
             \watchdog('islandora_scan_batch_ditigal_commons', 'Error ingesting Islandora collection %t : %e.', array('%t' => $this->getCollectionPID(), '%e' => $e->getMessage()), WATCHDOG_ERROR);
         }
         return $added;
@@ -423,7 +431,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
 
             return ISLANDORA_BATCH_STATE__DONE;
         } catch (Exception $e) {
-            \drupal_set_message(t('Error batch processing : %e.', array( '%e' => $e->getMessage()), 'error'));
+            \drupal_set_message(t('Error batch processing : %e.', array( '%e' => $e->getMessage())), 'error');
             \watchdog('islandora_scan_batch_ditigal_commons', '\'Error batch processing : %e.', array('%e' => $e->getMessage()), WATCHDOG_ERROR);
             return ISLANDORA_BATCH_STATE__ERROR;
         }
@@ -538,7 +546,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
                 $modsSupplementalFile->mime_type = $item_mime_type;
 
             } else {
-                $exception = $this->getFormattedException($modsSupplementalFile->getUri() . "The mods item did not have a note with the proposed DS name: " . $this->objectInfo->getTitle());
+                $exception = $this->getFormattedException("The mods xml did not have a note with the proposed DS name: " . $item_title);
                 throw $exception;
             }
             $modsSupplementalFiles[$item_title] = $modsSupplementalFile;
@@ -826,7 +834,7 @@ EOXML;
 
     protected function getFormattedException($comment ) {
 
-        return new Exception("Series name: " . $this->objectInfo->getCollection() . " - ObjectId: " . $this->objectInfo->getObjectId() . " - " .$comment);
+        return new Exception("Series name: " . $this->objectInfo->getCollection() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " .$comment);
 
     }
 }
