@@ -190,6 +190,7 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
         // The collection PID to which the object belongs, is
         // passed in as a parameter to IslandoraScanBatchDigitalCommons
         $object_info->setCollection($this->getCollectionPID());
+        $object_info->setDigitalCommonsSeries(getDigitalCommonsSeriesName());
         if (isset($this->parameters['collection_relationship_pred'])) {
             $object_info->setCollectionRelationshipPred($this->parameters['collection_relationship_pred']);
         }
@@ -576,11 +577,12 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
 
         $thesis_file_info = $this->retrieveFileInfoFromName('fulltext');
         if (!isset($thesis_file_info)) {
-            $exception = $this->getFormattedException("Does not have a fulltext file!");
-            throw $exception;
-        }
-        if (!$thesis_file_info->isProcessed()) {
-            $this->addNewDatastreamFileInfo('PDF', 'application/pdf', $this->objectInfo->getTitle(), $thesis_file_info);
+          $this->printWarningMessage("Does not have a fulltext file!");
+
+        } else {
+            if (!$thesis_file_info->isProcessed()) {
+                $this->addNewDatastreamFileInfo('PDF', 'application/pdf', $this->objectInfo->getTitle(), $thesis_file_info);
+            }
         }
     }
 
@@ -594,11 +596,11 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
         $datastream->state = "A";
         $datastream->setContentFromFile($file_info->getUri());
         if (!isset($datastream->content)) {
-            $exception = $this->getFormattedException($file_info->getUri() . " Unable to read content!");
-            throw $exception;
+            $this->printWarningMessage($file_info->getUri() . " Unable to read content!");
+        } else {
+            $this->ingestDatastream($datastream);
+            $file_info->setProcessed(TRUE);
         }
-        $this->ingestDatastream($datastream);
-        $file_info->setProcessed(TRUE);
     }
 
     protected function addNewDatastreamXMLContent($dsName, $dsType, $dsMimetype, $dsLabel, $xmlContent, $file_info = null)
@@ -628,37 +630,35 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
     {
         $digital_commons_xml_file_info = $this->retrieveFileInfoFromName('metadata');
         if (!isset($digital_commons_xml_file_info)) {
-            $exception = $this->getFormattedException("Does not have a digital commons metadata file!");
-            throw $exception;
+            $this->printWarningMessage("Does not have a digital commons metadata file!");
+        } else {
+            $this->addNewDatastreamFileInfo('DIGITAL_COMMONS_MD', 'application/xml', 'digital_commons_metadata', $digital_commons_xml_file_info);
         }
-   
-        $this->addNewDatastreamFileInfo('DIGITAL_COMMONS_MD', 'application/xml', 'digital_commons_metadata', $digital_commons_xml_file_info);
-
     }
 
     protected function parseDigitalCommonsDocumentType()
     {
         $digital_commons_xml_file_info = $this->retrieveFileInfoFromName('metadata');
         if (!isset($digital_commons_xml_file_info)) {
-            $exception = $this->getFormattedException("Does not have a digital commons metadata file!");
-            throw $exception;
-        }
-        $digital_commons_xml = file_get_contents($digital_commons_xml_file_info->getUri());
-        $digital_commons_document_type = null;
-        if ($digital_commons_xml) {
-            $digital_commons_xml_dom = new DOMDocument();
-            $digital_commons_xml_dom->loadXml($digital_commons_xml);
-            $digital_commons_xml_xpath = new DOMXPath($digital_commons_xml_dom);
-            $document_type_nodes = $digital_commons_xml_xpath->evaluate("/documents/document/document-type");
-
-            foreach ($document_type_nodes as $document_type_node) {
-                $digital_commons_document_type = $document_type_node->nodeValue;
-            }
+            $this->printWarningMessage("Does not have a digital commons metadata file!");
         } else {
-            $exception = $this->getFormattedException("Does not have a metadata.xml file!");
-            throw $exception;
+            $digital_commons_xml = file_get_contents($digital_commons_xml_file_info->getUri());
+            $digital_commons_document_type = null;
+            if ($digital_commons_xml) {
+                $digital_commons_xml_dom = new DOMDocument();
+                $digital_commons_xml_dom->loadXml($digital_commons_xml);
+                $digital_commons_xml_xpath = new DOMXPath($digital_commons_xml_dom);
+                $document_type_nodes = $digital_commons_xml_xpath->evaluate("/documents/document/document-type");
+
+                foreach ($document_type_nodes as $document_type_node) {
+                    $digital_commons_document_type = $document_type_node->nodeValue;
+                }
+            } else {
+                $exception = $this->getFormattedException("Does not have a metadata.xml file!");
+                throw $exception;
+            }
+            $this->objectInfo->setDigitalCommonsDocumentType($digital_commons_document_type);
         }
-        $this->objectInfo->setDigitalCommonsDocumentType($digital_commons_document_type);
     }
 
     /**
@@ -673,17 +673,17 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
     {
         $mods_file_info = $this->retrieveFileInfoFromName('MODS');
         if (!isset($mods_file_info)) {
-            $exception = $this->getFormattedException("Does not have a MODS metadata file!");
-            throw $exception;
-        }
-        $mods_content = $this->getModsXML();
+            $this->printWarningMessage("Does not have a MODS metadata file!");
+        } else {
+            $mods_content = $this->getModsXML();
 
-        $dsLabel = $this->getModsTitle();
-        // extract the first five words, replaceing any non-word character with _
-        // note that any non-ascii character will be listed as _, and that is unfortunate
-        $dsLabel = $this->formatDatastreamLabel($dsLabel);
-        $dsLabel = $dsLabel . "_MODS";
-        $this->addNewDatastreamXMLContent('MODS', 'm', "application/xml", $dsLabel, $mods_content, $mods_file_info);
+            $dsLabel = $this->getModsTitle();
+            // extract the first five words, replaceing any non-word character with _
+            // note that any non-ascii character will be listed as _, and that is unfortunate
+            $dsLabel = $this->formatDatastreamLabel($dsLabel);
+            $dsLabel = $dsLabel . "_MODS";
+            $this->addNewDatastreamXMLContent('MODS', 'm', "application/xml", $dsLabel, $mods_content, $mods_file_info);
+        }
     }
 
     /**
@@ -844,7 +844,15 @@ EOXML;
 
     protected function getFormattedException($comment ) {
 
-        return new Exception("Series name: " . $this->objectInfo->getCollection() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " .$comment);
+        return new Exception("Series name: " . $this->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " .$comment);
+
+    }
+    
+        protected function printWarningMessage($comment ) {
+            $message = t("Series name: " . $this->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " . $comment);
+            \drupal_set_message($message, 'warning');
+            \watchdog($message, WATCHDOG_WARNING);
+        
 
     }
 }

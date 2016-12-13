@@ -50,6 +50,8 @@ class DigitalCommonsObjectInfo {
         // the title of the fedora object as extracted from the mods document
         protected $title = null;
 
+        protected $digitalCommonsSeries = null;
+        
         public function __construct() {
             
         }
@@ -109,6 +111,10 @@ class DigitalCommonsObjectInfo {
         public function getTitle()
         {
             return $this->title;
+        }
+        
+        public function getDigitalCommonsSeries() {
+            return $this->digitalCommonsSeries;
         }
 
         public function getContentModels() {
@@ -177,6 +183,11 @@ class DigitalCommonsObjectInfo {
         {
             $this->title = $title;
         }
+        
+        public function setDigitalCommonsSeries($digitalCommonsSeries) {
+            $this->digitalCommonsSeries = $digitalCommonsSeries;
+        }
+
 
 
 }
