@@ -24,8 +24,8 @@ function islandora_batch_digital_commons_ingest_process(array $parameters, &$con
 }
 spl_autoload_register(function ($name) {
     if ($name === "IslandoraScanBatchObjectDigitalCommons") {
-      require_once ("/var/www/drupal/sites/all/modules/islandora_batch_digital_commons/includes/islandora_scan_batch_digital_commons.inc");
+      require_once (__DIR__ . "/islandora_scan_batch_digital_commons.inc");
     } elseif ((preg_match("/(DigitalCommonsObjectInfo)|(DigitalCommonsFileInfo)/", $name )  ) === 1) {
-      require_once ("/var/www/drupal/sites/all/modules/islandora_batch_digital_commons/includes/$name" . ".php");
+      require_once (__DIR__ . "/$name" . ".php");
     }
 });

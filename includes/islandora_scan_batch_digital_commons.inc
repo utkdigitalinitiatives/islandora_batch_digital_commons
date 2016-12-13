@@ -575,12 +575,12 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
     {
 
         $thesis_file_info = $this->retrieveFileInfoFromName('fulltext');
-
+        if (!isset($thesis_file_info)) {
+            $exception = $this->getFormattedException("Does not have a fulltext file!");
+            throw $exception;
+        }
         if (!$thesis_file_info->isProcessed()) {
             $this->addNewDatastreamFileInfo('PDF', 'application/pdf', $this->objectInfo->getTitle(), $thesis_file_info);
-        } else {
-            $exception = $this->getFormattedException($thesis_file_info->getUri() . "Does not have a fulltext file!");
-            throw $exception;
         }
     }
 
@@ -627,16 +627,22 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
     protected function addDigitalCommonsXMLDatastream()
     {
         $digital_commons_xml_file_info = $this->retrieveFileInfoFromName('metadata');
-
-        if ($digital_commons_xml_file_info) {
-            $this->addNewDatastreamFileInfo('DIGITAL_COMMONS_MD', 'application/xml', 'digital_commons_metadata', $digital_commons_xml_file_info);
+        if (!isset($digital_commons_xml_file_info)) {
+            $exception = $this->getFormattedException("Does not have a digital commons metadata file!");
+            throw $exception;
         }
+   
+        $this->addNewDatastreamFileInfo('DIGITAL_COMMONS_MD', 'application/xml', 'digital_commons_metadata', $digital_commons_xml_file_info);
+
     }
 
     protected function parseDigitalCommonsDocumentType()
     {
         $digital_commons_xml_file_info = $this->retrieveFileInfoFromName('metadata');
-
+        if (!isset($digital_commons_xml_file_info)) {
+            $exception = $this->getFormattedException("Does not have a digital commons metadata file!");
+            throw $exception;
+        }
         $digital_commons_xml = file_get_contents($digital_commons_xml_file_info->getUri());
         $digital_commons_document_type = null;
         if ($digital_commons_xml) {
@@ -666,6 +672,10 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
     protected function addModsDatastream()
     {
         $mods_file_info = $this->retrieveFileInfoFromName('MODS');
+        if (!isset($mods_file_info)) {
+            $exception = $this->getFormattedException("Does not have a MODS metadata file!");
+            throw $exception;
+        }
         $mods_content = $this->getModsXML();
 
         $dsLabel = $this->getModsTitle();
@@ -735,7 +745,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
         $mods_xml = $this->objectInfo->getModsXml();
         if (!isset($mods_xml)) {
             $mods_file_info = $this->retrieveFileInfoFromName('MODS');
-            if ($mods_file_info) {
+            if (isset($mods_file_info)) {
                 $mods_xml = file_get_contents($mods_file_info->getUri());
             } else {
                 $mods_xml = <<<EOXML
