@@ -190,7 +190,7 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
         // The collection PID to which the object belongs, is
         // passed in as a parameter to IslandoraScanBatchDigitalCommons
         $object_info->setCollection($this->getCollectionPID());
-        $object_info->setDigitalCommonsSeries(getDigitalCommonsSeriesName());
+        $object_info->setDigitalCommonsSeries($this->getDigitalCommonsSeriesName());
         if (isset($this->parameters['collection_relationship_pred'])) {
             $object_info->setCollectionRelationshipPred($this->parameters['collection_relationship_pred']);
         }
@@ -429,11 +429,13 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
             $this->addThesisPDFDatastream_tmp();
             $this->addSupplementalFiles();
             $this->addRelationships();
-
+            print date(DATE_ATOM) . 
+                " Batch Process Completed. Series name: " . $this->objectInfo->getDigitalCommonsSeries() . 
+                " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . "\n";
             return ISLANDORA_BATCH_STATE__DONE;
         } catch (Exception $e) {
-            \drupal_set_message(t('Error batch processing : %e.', array( '%e' => $e->getMessage())), 'error');
-            \watchdog('islandora_scan_batch_ditigal_commons', '\'Error batch processing : %e.', array('%e' => $e->getMessage()), WATCHDOG_ERROR);
+            \drupal_set_message(date(DATE_ATOM) . t('Error batch processing : %e.', array( '%e' => $e->getMessage())), 'error');
+            \watchdog(date(DATE_ATOM) . 'islandora_scan_batch_ditigal_commons', '\'Error batch processing : %e.', array('%e' => $e->getMessage()), WATCHDOG_ERROR);
             return ISLANDORA_BATCH_STATE__ERROR;
         }
     }
@@ -500,6 +502,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
     protected function getModsSupplementalFileMap()
     {
         $modsSupplementalFiles = array();
+        $missingDSNameSupplimentalFiles = array();
         $mods_dom = $this->getModsDom();
         $mods_xpath = new DOMXPath($mods_dom);
         $mods_xpath->registerNamespace('m', 'http://www.loc.gov/mods/v3');
@@ -507,29 +510,29 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
         foreach ($mods_related_items as $related_item) {
             $related_item_title_info_list = $related_item->getElementsByTagName('titleInfo');
             if ($related_item_title_info_list->length != 1) {
-                $exception = $this->getFormattedException( "mods xml has more than one titleInfo for a related item: " . $this->objectInfo->getTitle());
-                throw $exception;
+                $this->printWarningMessage( "mods xml has more than one titleInfo for a related item");
+                continue;
             }
             $related_item_title_info_node = $related_item_title_info_list->item(0);
             $related_item_title_list = $related_item_title_info_node->getElementsByTagName('title');
             if ($related_item_title_list->length != 1) {
 
-                $exception = $this->getFormattedException("The mods xml has more than one title for a related item: " . $this->objectInfo->getTitle());
-                throw $exception;
+                $this->printWarningMessage("The mods xml has more than one title for a related item");
+                continue;
             }
             $title_node_node = $related_item_title_list->item(0);
             $item_title = $title_node_node->textContent;
 
             $physical_description_list = $related_item->getElementsByTagName('physicalDescription');
             if ($physical_description_list->length != 1) {
-                $exception = $this->getFormattedException("The mods xml has more than one physicalDescription for a related item: " . $this->objectInfo->getTitle());
-                throw $exception;
+                $this->printWarningMessage("The mods xml has more than one physicalDescription for a related item");
+                continue;
             }
             $physical_description_node = $physical_description_list->item(0);
             $internet_media_type_list = $physical_description_node->getElementsByTagName('internetMediaType');
             if ($internet_media_type_list->length != 1) {
-                $exception = $this->getFormattedException("The mods xml has more than one internetMediaType for a related item: " . $this->objectInfo->getTitle());
-                throw $exception;
+                $this->printWarningMessage("The mods xml has more than one internetMediaType for a related item");
+                continue;
             }
             $internet_media_type_node = $internet_media_type_list->item(0);
             $item_mime_type = $internet_media_type_node->textContent;
@@ -541,17 +544,24 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
                     $item_ds_name = $note->textContent;
                 }
             }
-            $modsSupplementalFile = new stdClass();
+            
             if (isset($item_ds_name)) {
+                $modsSupplementalFile = new stdClass();
                 $modsSupplementalFile->ds_name = $item_ds_name;
                 $modsSupplementalFile->mime_type = $item_mime_type;
-
+                $modsSupplementalFiles[$item_title] = $modsSupplementalFile;
             } else {
-                $exception = $this->getFormattedException("The mods xml did not have a note with the proposed DS name: " . $item_title);
-                throw $exception;
+                $modsSupplementalFile = new stdClass();
+                $modsSupplementalFile->mime_type = $item_mime_type;
+                $modsSupplementalFiles[$item_title] = $modsSupplementalFile;
+                $missingDSNameSupplimentalFiles[] = $modsSupplementalFile;
             }
-            $modsSupplementalFiles[$item_title] = $modsSupplementalFile;
         }
+        
+        // find the max integer appended to the datastream name, then
+        // start adding in SUPPL_X to reach missing missingDSNameSupplimentalFiles
+        // increasing the digit as processed.
+        
         return $modsSupplementalFiles;
     }
 
@@ -778,7 +788,7 @@ EOXML;
             // Get the DC by transforming from MODS.
             // XXX: Might want to make this use a file, instead of staging the DC
             // in the database table (inside the object we serialize).
-            $mods_content = $this->getMods();
+            $mods_content = $this->getModsXML();
             if ($mods_content) {
                 $new_dc = static::runXslTransform(
                     array(
@@ -849,7 +859,7 @@ EOXML;
     }
     
         protected function printWarningMessage($comment ) {
-            $message = t("Series name: " . $this->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " . $comment);
+            $message = t(date(DATE_ATOM) ." Series name: " . $this->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " . $comment);
             \drupal_set_message($message, 'warning');
             \watchdog($message, WATCHDOG_WARNING);
         
