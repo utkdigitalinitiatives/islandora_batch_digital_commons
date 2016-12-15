@@ -435,7 +435,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
             return ISLANDORA_BATCH_STATE__DONE;
         } catch (Exception $e) {
             \drupal_set_message(date(DATE_ATOM) . t('Error batch processing : %e.', array( '%e' => $e->getMessage())), 'error');
-            \watchdog(date(DATE_ATOM) . 'islandora_scan_batch_ditigal_commons', '\'Error batch processing : %e.', array('%e' => $e->getMessage()), WATCHDOG_ERROR);
+            \watchdog('islandora_scan_batch_ditigal_commons', '\'Error batch processing : %e.', array('%e' => $e->getMessage()), WATCHDOG_ERROR);
             return ISLANDORA_BATCH_STATE__ERROR;
         }
     }
@@ -861,7 +861,7 @@ EOXML;
         protected function printWarningMessage($comment ) {
             $message = t(date(DATE_ATOM) ." Series name: " . $this->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " . $comment);
             \drupal_set_message($message, 'warning');
-            \watchdog($message, WATCHDOG_WARNING);
+            \watchdog('islandora_scan_batch_ditigal_commons', $message, null, WATCHDOG_WARNING);
         
 
     }
