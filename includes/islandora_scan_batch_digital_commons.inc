@@ -35,7 +35,7 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
      *   form.
      *   Available parameters are from the particular concrete implementation.
      */
-    public function __construct(IslandoraTuque $connection, IslandoraBatchFedoraObjectModelCache $object_model_cache, array $parameters)
+    public function __construct( $connection,  $object_model_cache, array $parameters)
     {
         parent::__construct($connection, $parameters);
         // $this->root_pid = variable_get('islandora_repository_pid', 'islandora:root');
@@ -362,7 +362,7 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
   /**
    * Recursively attempt to preprocess children.
    */
-  protected function preprocessChildren(IslandoraScanBatchObjectDigitalCommons $object, $parent = NULL) {
+  protected function preprocessChildren($object, $parent = NULL) {
     $to_return = array();
 
     // XXX: Squash exceptions and log 'em.
@@ -401,7 +401,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
     /**
      * Constructor for the IslandoraScanBatchObject.
      */
-    public function __construct(IslandoraTuque $connection, $base_name, $object_info)
+    public function __construct($connection, $base_name, $object_info)
     {
         parent::__construct($connection, $base_name, null, null);
         $this->modsToDcTransform = drupal_get_path('module', 'islandora_batch') . '/transforms/mods_to_dc.xsl';
