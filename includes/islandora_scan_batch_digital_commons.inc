@@ -35,7 +35,7 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
      *   form.
      *   Available parameters are from the particular concrete implementation.
      */
-    public function __construct( $connection,  $object_model_cache, array $parameters)
+    public function __construct( $connection,  $object_model_cache, $parameters)
     {
         parent::__construct($connection, $parameters);
         // $this->root_pid = variable_get('islandora_repository_pid', 'islandora:root');
