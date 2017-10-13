@@ -55,7 +55,10 @@ The base ZIP/directory preprocessor can be called as a drush script (see `drush 
 
 `drush ibdcsp --input=/path/to/dsvfile  --type=directory --target=/path/to/archive `
 
-The input file must be a delimiter separated value file.  The format expected for the file is found in the islandora_batch_digital_commons.module with the declaration of three constants (ISLANDORA_BATCH_DIGITAL_COMMONS_DELIMITER, ISLANDORA_BATCH_DIGITAL_COMMONS_ENCLOSURE, ISLANDORA_BATCH_DIGITAL_COMMONS_ESCAPE)
+The input file must be a delimiter separated value file.  The format expected for the file is found in the islandora_batch_digital_commons.module with the declaration of three constants:
+* ISLANDORA_BATCH_DIGITAL_COMMONS_DELIMITER
+* ISLANDORA_BATCH_DIGITAL_COMMONS_ENCLOSURE
+* ISLANDORA_BATCH_DIGITAL_COMMONS_ESCAPE
 
 The file describes the relation between the Digital Common's collections and the new TRACE collections.  Every object parsed from Digital Commons will become an object in a TRACE collection.  Digital Common's collections will be collapsed into fewer TRACE collections. 
 The file expects the following 4 columns in order:
