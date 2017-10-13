@@ -53,15 +53,19 @@ Further documentation for this module is available at [our wiki](https://wiki.du
 
 The base ZIP/directory preprocessor can be called as a drush script (see `drush help islandora_batch_scan_preprocess` for additional parameters):
 
-Drush made the `target` parameter reserved as of Drush 7. To allow for backwards compatability this will be preserved.
+`drush ibdcsp --input=/path/to/dsvfile  --type=directory --target=/path/to/archive `
 
-Drush 7 and above:
+The input file must be a delimiter separated value file.  The format expected for the file is found in the islandora_batch_digital_commons.module with the declaration of three constants (ISLANDORA_BATCH_DIGITAL_COMMONS_DELIMITER, ISLANDORA_BATCH_DIGITAL_COMMONS_ENCLOSURE, ISLANDORA_BATCH_DIGITAL_COMMONS_ESCAPE)
 
-`drush -v -u 1 --uri=http://localhost islandora_batch_scan_preprocess --type=zip --scan_target=/path/to/archive.zip`
+The file describes the relation between the Digital Common's collections and the new TRACE collections.  Every object parsed from Digital Commons will become an object in a TRACE collection.  Digital Common's collections will be collapsed into fewer TRACE collections. 
+The file expects the following 4 columns in order:
+digitalCommonsSeries parent namespace objectId
 
-Drush 6 and below:
+digitalCommonsSeries: The name given to the BePress subcollection.
+parent:  The parent object that any parsed object in the digitalCommonsSeries will become a child of(currently unused, and should be deprecated)
+namespace: The namespace of the TRACE collection of which any newly created object will be a child
+objectId: The name/identifier of the TRACE collection of which any newly created object will be a child
 
-`drush -v -u 1 --uri=http://localhost islandora_batch_scan_preprocess --type=zip --target=/path/to/archive.zip`
 
 This will populate the queue (stored in the Drupal database) with base entries.
 
@@ -69,21 +73,8 @@ For the base scan, files are grouped according to their basename (without extens
 
 The queue of preprocessed items can then be processed:
 
-`drush -v -u 1 --uri=http://localhost islandora_batch_ingest`
+`drush ibdci`
 
-A fuller example, which preprocesses large image objects for inclusion in the collection with PID "yul:F0433", is:
-
-Drush 7 and above:
-
-`drush -v -u 1 --uri=http://digital.library.yorku.ca islandora_batch_scan_preprocess --content_models=islandora:sp_large_image_cmodel --parent=yul:F0433 --parent_relationship_pred=isMemberOfCollection --type=directory --target=/tmp/batch_ingest`
-
-Drush 6 and below:
-
-`drush -v -u 1 --uri=http://digital.library.yorku.ca islandora_batch_scan_preprocess --content_models=islandora:sp_large_image_cmodel --parent=yul:F0433 --parent_relationship_pred=isMemberOfCollection --type=directory --scan_target=/tmp/batch_ingest`
-
-then, to ingest the queued objects:
-
-`drush -v -u 1 --uri=http://digital.library.yorku.ca islandora_batch_ingest`
 
 ### Customization
 
