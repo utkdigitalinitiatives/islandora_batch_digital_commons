@@ -5,9 +5,9 @@
 This module implements a batch framework, as well as a basic ZIP/directory ingester.
 
 It will ingest an export from bepress Digital Commons.  The Digital Commons
-export is anticipated as having a directory structure that is organized 
-as:
+export is anticipated as having a directory structure.  The directory structure may change based on the collection content. For Electronic Thesis and Dissertations the organization is:
 
+<pre>
 toplevel directory
   -> collection directory (name of the directory is the name of the collection)
     -> object directory (name of the directory is the ordinal value of the object in the collection)
@@ -15,7 +15,7 @@ toplevel directory
       -> primary datastream filename (a single file, referenced in metadata.xml)
       -> possibly multiple supplimentary datastream filenames (one or more files, referenced in metadata.xml)
       -> MODS (created by post processing of export as a transform from the metadata.xml)
-      
+</pre> 
 The ingest is a two-step process:
 
 * Preprocessing: The data is scanned, and a number of entries created in the
