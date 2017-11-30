@@ -7,11 +7,12 @@
 define('ISLANDORA_BATCH_DIGITAL_COMMONS_DELIMITER',',');
 define('ISLANDORA_BATCH_DIGITAL_COMMONS_ENCLOSURE','"');
 define('ISLANDORA_BATCH_DIGITAL_COMMONS_ESCAPE','"');
+define('DIGITAL_COMMONS_MAX_SUBDIRECTORY_DEPTH_FOR_COLLECTIONS', '10');
 
 /**
  * Function to handle preprocessing.
  */
-function islandora_batch_digital_commons_handle_preprocessor(IslandoraBatchPreprocessor $preprocessor) {
+function islandora_batch_digital_commons_handle_preprocessor($preprocessor) {
   return $preprocessor->preprocess();
 }
 
@@ -24,7 +25,7 @@ function islandora_batch_digital_commons_handle_preprocessor(IslandoraBatchPrepr
  *
  * Queries the database for preprocessed entries, and attempts to ingest them.
  */
-function islandora_batch_digital_commons_set_operations(array $parameters) {
+function islandora_batch_digital_commons_set_operations($parameters) {
   $batch = array(
     'title' => t('Islandora Batch Ingest Digital Commons'),
     'finished' => 'islandora_batch_finished',
@@ -49,7 +50,7 @@ function islandora_batch_digital_commons_set_operations(array $parameters) {
 /**
  * Dumbly sets the batch operations and calls batch_process().
  */
-function islandora_batch_digital_commons_ingest(array $parameters) {
+function islandora_batch_digital_commons_ingest($parameters) {
   islandora_batch_set_operations($parameters);
   batch_process();
 }
@@ -101,4 +102,21 @@ function retrieveDataFromDsvFile($data_file_path, $delimiter_char = ISLANDORA_BA
     }
     return $dsv_data;
 }
-
+function islandora_batch_digital_commons_islandora_batch_object_processed(IslandoraScanBatchObjectDigitalCommons $ingest_object, $is_object_state_done)
+{
+    if ($is_object_state_done) {
+        if ($is_object_state_done) {
+            $objectProfile = $ingest_object->objectProfile;
+            if (isset($objectProfile) && is_array($objectProfile)) {
+                trace_ext_workflow__printWarningMessage(t('%pid ready for islandora_batch_digital_commons manipulation', array('%pid' => $ingest_object->id)));
+            } else {
+                trace_ext_workflow__printWarningMessage(t('%pid not ready for islandora_batch_digital_commons manipulation', array('%pid' => $ingest_object->id)));
+            }
+        }
+    }
+}
+function islandora_batch_digital_commons__printWarningMessage($comment ) {
+    $message = t(date(DATE_ATOM) . "  " . $comment);
+    \drupal_set_message($comment, 'warning');
+    \watchdog('islandora_scan_batch_ditigal_commons', $comment, null, WATCHDOG_WARNING);
+}
