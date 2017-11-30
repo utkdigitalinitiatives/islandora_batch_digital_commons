@@ -7,6 +7,7 @@
 define('ISLANDORA_BATCH_DIGITAL_COMMONS_DELIMITER',',');
 define('ISLANDORA_BATCH_DIGITAL_COMMONS_ENCLOSURE','"');
 define('ISLANDORA_BATCH_DIGITAL_COMMONS_ESCAPE','"');
+define('DIGITAL_COMMONS_MAX_SUBDIRECTORY_DEPTH_FOR_COLLECTIONS', '10');
 
 /**
  * Function to handle preprocessing.
@@ -101,4 +102,21 @@ function retrieveDataFromDsvFile($data_file_path, $delimiter_char = ISLANDORA_BA
     }
     return $dsv_data;
 }
-
+function islandora_batch_digital_commons_islandora_batch_object_processed(IslandoraScanBatchObjectDigitalCommons $ingest_object, $is_object_state_done)
+{
+    if ($is_object_state_done) {
+        if ($is_object_state_done) {
+            $objectProfile = $ingest_object->objectProfile;
+            if (isset($objectProfile) && is_array($objectProfile)) {
+                trace_ext_workflow__printWarningMessage(t('%pid ready for islandora_batch_digital_commons manipulation', array('%pid' => $ingest_object->id)));
+            } else {
+                trace_ext_workflow__printWarningMessage(t('%pid not ready for islandora_batch_digital_commons manipulation', array('%pid' => $ingest_object->id)));
+            }
+        }
+    }
+}
+function islandora_batch_digital_commons__printWarningMessage($comment ) {
+    $message = t(date(DATE_ATOM) . "  " . $comment);
+    \drupal_set_message($comment, 'warning');
+    \watchdog('islandora_scan_batch_ditigal_commons', $comment, null, WATCHDOG_WARNING);
+}

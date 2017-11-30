@@ -129,16 +129,17 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
      */
     protected function scanDirectory($target)
     {
-        $files = array();
+
+        $fileStorage = new SplObjectStorage();
         $target_path = drupal_realpath($target);
         $target_length = strlen($target_path) + 1;
         $directory_contents = file_scan_directory(
             $target_path, $this->getPattern(), array('recurse' => $this->recursiveScan)
         );
         foreach ($directory_contents as $uri => $value) {
-            $files[] = $value;
+            $fileStorage->attach($value);
         }
-        return $files;
+        return $fileStorage;
     }
 
     /**
@@ -167,20 +168,43 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
      *   An array, as returned by file_scan_directory().
      *
      */
-    function groupFiles($files)
+    function groupFiles(SplObjectStorage $fileStorage)
     {
         $grouped = array();
-
-        foreach ($files as $file) {
-            $file_object = $this->buildFileObject($file);
-            if (isset($grouped[$file_object->getDigitalCommonsObjectId()])) {
-                $grouped[$file_object->getDigitalCommonsObjectId()]->addFileArray($file_object);
-            } else {
-                $object_info = $this->buildObjectInfo($file_object);
-                $grouped[$file_object->getDigitalCommonsObjectId()] = $object_info;
+        $digitalCommonsMetadata = null;
+        $digitalCommonsMetadataFileObject = null;
+        $digitalCommonsMetadataObjectInfo = null;
+        // turns out we need a file we know will be at the same level as an object id, metadata.xml
+        // should reside in the object directory
+        // with all parent directories becoming the DigitalCommonsObjectId
+        foreach ($fileStorage as $storedFile) {
+            if ($storedFile->filename == "metadata.xml") {
+                $digitalCommonsMetadata = $storedFile;
+                break;
             }
         }
+        if (isset($digitalCommonsMetadata)) {
+            $digitalCommonsMetadataFileObject = $this->buildFileObject($digitalCommonsMetadata);
+            if (isset($digitalCommonsMetadataFileObject)) {
+                $digitalCommonsMetadataObjectInfo = $this->buildObjectInfo($digitalCommonsMetadataFileObject);
+            }
+            $grouped[$digitalCommonsMetadataFileObject->getDigitalCommonsObjectId()] = $digitalCommonsMetadataObjectInfo;
+        } else {
+            $debug = var_export($fileStorage, true);
+            throw new Exception("File metadata.xml could not be found\n{$debug}\n"  );
+        }
+        $fileStorage->detach($digitalCommonsMetadata);
 
+        foreach ($fileStorage as $storedFile) {
+            $file_object = $this->buildFileObject($storedFile, $digitalCommonsMetadataObjectInfo);
+            if (isset($grouped[$file_object->getDigitalCommonsObjectId()])) {
+                $grouped[$file_object->getDigitalCommonsObjectId()]->addFileArray($file_object);
+            }
+        }
+ /*       foreach ($grouped as $digital_commons_id => $object) {
+            echo $digital_commons_id . "\n";
+        }
+ */
         return $grouped;
     }
 
@@ -206,7 +230,7 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
         return $object_info;
     }
 
-    protected function buildFileObject($file)
+    protected function buildFileObject($file, DigitalCommonsObjectInfo $digitalCommonsMetadataObjectInfo = null)
     {
         // counter for ascending the path towards the collection level directory
         $i = 0;
@@ -215,42 +239,46 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
         $file_object->setFilename($file->filename);
         $file_object->setName($file->name);
         $file_object->setExt(pathinfo($file->filename, PATHINFO_EXTENSION));
-        // Each file_object represents a Fedora DataStream
-        // The collection directory of each file(DS) indicates an ObjectID in Digital Commons
         $file_object->setObjectDirectory(pathinfo($file_object->getUri(), PATHINFO_DIRNAME));
-        $file_object->setDigitalCommonsObjectId(pathinfo($file_object->getObjectDirectory(), PATHINFO_FILENAME));
+        if (isset($digitalCommonsMetadataObjectInfo)) {
+            $file_object->setDigitalCommonsObjectId($digitalCommonsMetadataObjectInfo->getDigitalCommonsObjectId());
+        } else {
+            // Each file_object represents a Fedora DataStream
+            // The collection directory of each file(DS) indicates an ObjectID in Digital Commons
 
-        //Many times the Digital Commons Series directory is the parent of the DigitalCommonsObjectId directory
-        //However, on occassion the Series directory is several levels up.
-        $digitalCommonsSeriesDirectory = pathinfo($file_object->getObjectDirectory(), PATHINFO_DIRNAME);
-        $digitalCommonsSeriesName = pathinfo($digitalCommonsSeriesDirectory, PATHINFO_FILENAME);
+            $file_object->setDigitalCommonsObjectId(pathinfo($file_object->getObjectDirectory(), PATHINFO_FILENAME));
 
-
-        // The collection name may be several directories above the directory
-        // representing the object id
-        // The ObjectID grouping all the datastreams needs to be unique
-        //  for the collection.
-        //  
-        // Concatentating all the subjectories together along with the 
-        // object id will make the object id unique.
-        // For example, the name of the collection may be journalx
-        // but underneath the directory journalx may be 
-        // vol1/iss1/1 where 1 is an object id, but the object id
-        // is not yet unique for the collection journalx
-        // by creating an object id of vol1.iss1.1, then we are
-        // able to maintain a unique key for the identity of the
-        // object located in vol1/iss1/1
-        while ($digitalCommonsSeriesName !== $this->getDigitalCommonsSeriesName()) {
-            $file_object->setDigitalCommonsObjectId($digitalCommonsSeriesName . "." . $file_object->getDigitalCommonsObjectId());
-            // do not want to have an infinite loop attempting to build a unique object id
-            if ($i >= DIGITAL_COMMONS_MAX_SUBDIRECTORY_DEPTH_FOR_COLLECTIONS || $digitalCommonsSeriesDirectory === "/") {
-                throw new Exception("target collection directory " . $this->getTarget() . " invalid for Digital Commons Dump");
-            }
-            $digitalCommonsSeriesDirectory = pathinfo($digitalCommonsSeriesDirectory, PATHINFO_DIRNAME);
+            //Many times the Digital Commons Series directory is the parent of the DigitalCommonsObjectId directory
+            //However, on occassion the Series directory is several levels up.
+            $digitalCommonsSeriesDirectory = pathinfo($file_object->getObjectDirectory(), PATHINFO_DIRNAME);
             $digitalCommonsSeriesName = pathinfo($digitalCommonsSeriesDirectory, PATHINFO_FILENAME);
-            ++$i;
-        }
 
+
+            // The collection name may be several directories above the directory
+            // representing the object id
+            // The ObjectID grouping all the datastreams needs to be unique
+            //  for the collection.
+            //
+            // Concatentating all the subjectories together along with the
+            // object id will make the object id unique.
+            // For example, the name of the collection may be journalx
+            // but underneath the directory journalx may be
+            // vol1/iss1/1 where 1 is an object id, but the object id
+            // is not yet unique for the collection journalx
+            // by creating an object id of vol1.iss1.1, then we are
+            // able to maintain a unique key for the identity of the
+            // object located in vol1/iss1/1
+            while ($digitalCommonsSeriesName !== $this->getDigitalCommonsSeriesName()) {
+                $file_object->setDigitalCommonsObjectId($digitalCommonsSeriesName . "." . $file_object->getDigitalCommonsObjectId());
+                // do not want to have an infinite loop attempting to build a unique object id
+                if ($i >= DIGITAL_COMMONS_MAX_SUBDIRECTORY_DEPTH_FOR_COLLECTIONS || $digitalCommonsSeriesDirectory === "/") {
+                    throw new Exception("target collection directory " . $this->getTarget() . " invalid for Digital Commons Dump");
+                }
+                $digitalCommonsSeriesDirectory = pathinfo($digitalCommonsSeriesDirectory, PATHINFO_DIRNAME);
+                $digitalCommonsSeriesName = pathinfo($digitalCommonsSeriesDirectory, PATHINFO_FILENAME);
+                ++$i;
+            }
+        }
         return $file_object;
     }
 
@@ -267,23 +295,14 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
      */
     public function preprocess()
     {
-        $files = $this->scan();
-
-        if ($files === FALSE) {
-            // Failed to scan.
-            // TODO: Pop an error.
-        } elseif (empty($files)) {
-            // No contents.
-            // TODO: Pop a warning.
-        }
+        $fileStorage = $this->scan();
 
         $added = array();
+        if ($fileStorage->count() > 0) {
+            $grouped = $this->groupFiles($fileStorage);
 
-        $grouped = $this->groupFiles($files);
-
-
-        $added = array_merge($added, $this->preprocessCollectionLevel($grouped));
-
+            $added = array_merge($added, $this->preprocessCollectionLevel($grouped));
+        }
 
         return $added;
     }
@@ -385,6 +404,11 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
 class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
 {
 
+    private $CORRESPONDENCE_DSID = "MESSAGES";
+    private $CORRESPONDENCE_DSTYPE = "M";
+    private $CORRESPONDENCE_MIMETYPE = "text/plain";
+    private $CORRESPONDENCE_LABEL = "messages.txt";
+
     // need to create an __autoload function (?)
     protected $baseName = null;
     // DigitalCommonObjectInfo
@@ -392,11 +416,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
     // Keys in objectInfo that are not to be datastreams.
     // Path to MODS->DC XSLT.
     public $modsToDcTransform = null;
-    public $mods = null;
-    public $dc = null;
-    private $digital_commons_document_type;
-    // confirm this[MODS] is complete
-    private $mods_dom;
+
 
     /**
      * Constructor for the IslandoraScanBatchObject.
@@ -410,6 +430,14 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
         $this->resources = array();
     }
 
+    private function initializeObjectInfo() {
+        $this->objectProfile['objLabel'] = substr($this->getModsTitle(), 0, 254);
+        // not all objects will be active, some may be in progress to publication.
+        $this->objState = "A";
+        $this->state = "A"; // Active, not all will be active, must determine state from metadata.xml
+        $this->objectProfile['objState'] = "A";
+        $this->objectProfile['objOwnerId'] = 'admin';
+    }
     /**
      * Function batch_process.
      */
@@ -420,22 +448,22 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
             $this->addDigitalCommonsXMLDatastream();
             $this->addModsDatastream();
             $this->addDCDatastream();
-            $this->objectProfile['objLabel'] = substr($this->getModsTitle(), 0, 254);
+            $this->initializeObjectInfo();
 
-            // not all objects will be active, some may be in progress to publication.
+            $this->correlateModelDatastreams();
 
-            $this->state = "A"; // Active, not all will be active, must determine state from metadata.xml
-            $this->objectProfile['objState'] = 'A';
-            $this->addThesisPDFDatastream_tmp();
-            $this->addSupplementalFiles();
             $this->addRelationships();
             print date(DATE_ATOM) . 
                 " Batch Process Completed. Series name: " . $this->objectInfo->getDigitalCommonsSeries() . 
                 " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . "\n";
+            var_dump($this);
             return ISLANDORA_BATCH_STATE__DONE;
         } catch (Exception $e) {
-            \drupal_set_message(date(DATE_ATOM) . t('Error batch processing : %e.', array( '%e' => $e->getMessage())), 'error');
-            \watchdog('islandora_scan_batch_ditigal_commons', '\'Error batch processing : %e.', array('%e' => $e->getMessage()), WATCHDOG_ERROR);
+            $message = t(date(DATE_ATOM) ." Series name: " . $this->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " . $e->getMessage());
+            \drupal_set_message($message, 'error');
+            \watchdog($message, WATCHDOG_ERROR);
+            \watchdog('islandora_scan_batch_digital_commons', $message, null, WATCHDOG_ERROR);
+
             return ISLANDORA_BATCH_STATE__ERROR;
         }
     }
@@ -475,8 +503,12 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
             // these digits need to be stripped off in order to conform
             // to the files listed in the mods record
             $supplFileInfoMatch = array();
+
             if (preg_match("/^\d+\-(.+)$/", $file_info->getFilename(), $supplFileInfoMatch) && !$file_info->isProcessed()) {
                 $canonicalSupplFileName = $supplFileInfoMatch[1];
+                if (! isset($modsSupplementaryFileMap[$canonicalSupplFileName]) && isset($modsSupplementaryFileMap[$file_info->getFilename()])) {
+                    $canonicalSupplFileName =$file_info->getFilename();
+                }
                 if (isset($modsSupplementaryFileMap[$canonicalSupplFileName])) {
                     // add the stream and mark it as done, increment suppl_index to a higher value
                     // if the next suppl is higher than the current suppl_index
@@ -561,10 +593,38 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
         // find the max integer appended to the datastream name, then
         // start adding in SUPPL_X to reach missing missingDSNameSupplimentalFiles
         // increasing the digit as processed.
-        
         return $modsSupplementalFiles;
     }
+    /*
+     * iterate through all the files that conform to the pattern
+     * for supplemental files
+     * Add them as datastreams
+     */
+    protected function addCorrespondence()
+    {
+        // get a list of files that conform to the supplementary file pattern
+        // that have been found in the zip/filesystem path
+        $messages = "";
+        foreach ($this->objectInfo->getFileArray() as $file_info) {
+            // supplemental files will begin with digits
+            // these digits need to be stripped off in order to conform
+            // to the files listed in the mods record
+            $filename= $file_info->getFilename();
 
+            if (preg_match("/^decision\-\d+\.txt$/", $file_info->getFilename()) && !$file_info->isProcessed()) {
+
+                $correspondence = file_get_contents($file_info->getUri());
+                $messages.= $this->constructEmail($correspondence);
+
+            }
+        }
+        if (!empty($messages)) {
+
+            $this->addNewDatastreamContent($this->CORRESPONDENCE_DSID, $this->CORRESPONDENCE_DSTYPE,
+                $this->CORRESPONDENCE_MIMETYPE, $this->CORRESPONDENCE_LABEL, $messages);
+        }
+
+    }
     protected function retrieveFileInfoFromName($name)
     {
         $returnFileInfo = null;
@@ -582,7 +642,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
      * it is always named metadata.xml.
      *
      */
-    protected function addThesisPDFDatastream_tmp()
+    protected function addFullTextPDF()
     {
 
         $thesis_file_info = $this->retrieveFileInfoFromName('fulltext');
@@ -613,7 +673,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
         }
     }
 
-    protected function addNewDatastreamXMLContent($dsName, $dsType, $dsMimetype, $dsLabel, $xmlContent, $file_info = null)
+    protected function addNewDatastreamContent($dsName, $dsType, $dsMimetype, $dsLabel, $xmlContent, $file_info = null)
     {
         $datastream = $this->constructDatastream($dsName, $dsType);
         $datastream->mimetype = $dsMimetype;
@@ -692,12 +752,12 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
             // note that any non-ascii character will be listed as _, and that is unfortunate
             $dsLabel = $this->formatDatastreamLabel($dsLabel);
             $dsLabel = $dsLabel . "_MODS";
-            $this->addNewDatastreamXMLContent('MODS', 'm', "application/xml", $dsLabel, $mods_content, $mods_file_info);
+            $this->addNewDatastreamContent('MODS', 'm', "application/xml", $dsLabel, $mods_content, $mods_file_info);
         }
     }
 
     /**
-     * Function to get the mods.
+     * Function to get the title of the mods.
      *
      * for the digital commons batch upload to work correctly,
      * There must be a MODS record in the directory representing
@@ -716,7 +776,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
 
                 $mods_title = $mods_xpath->evaluate('string(//m:mods/m:titleInfo/m:title/text())');
                 // Assign the label of the object based on the full title;
-
+                $mods_title = strip_tags($mods_title);
                 $this->objectInfo->setTitle($mods_title);
 
             } else {
@@ -728,6 +788,114 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
         return $this->objectInfo->getTitle();
     }
 
+    /**
+     * Function to get the Owner of the mods record.
+     *
+     * for the digital commons batch upload to work correctly,
+     * There must be a MODS record in the directory representing
+     * the object to upload. The MODS record was transformed from
+     * the metadata.xml file
+     */
+    protected function getModsOwner()
+    {
+            $owner= "";
+            $mods_dom = $this->getModsDom();
+            if (isset($mods_dom)) {
+
+                $mods_xpath = new DOMXPath($mods_dom);
+                $mods_xpath->registerNamespace('m', 'http://www.loc.gov/mods/v3');
+
+                $mods_givenName = $mods_xpath->evaluate('string(//m:mods/m:name/m:namePart[@type="given"]/text())');
+                $mods_familyName = $mods_xpath->evaluate('string(//m:mods/m:name/m:namePart[@type="family"]/text())');
+                // Assign the label of the object based on the full title;
+                if (! empty($mods_givenName) && ! empty($mods_familyName)) {
+                $owner = $mods_familyName . ", " . $mods_givenName;
+                } else {
+                    $owner = "Not Available";
+                }
+            } else {
+                $owner = "Not Available";
+
+            }
+
+
+        return $owner;
+    }
+
+    /**
+     * This associates the main file to the prime datastream of the Object Model being created.
+     * It also may perform any Object Model specific processing.
+     * Consider this the extention point in the code.
+     * The function should be overwritten upon use by another institution other than
+     * the Univserity of Tennessee. I assume that institutions may define or discover
+     * their main datastream differently than we do, thus I have made the function public
+     * so that it may be overwritten in a descendant.
+     *
+     * Currently all associations between prime datastream and Object Model
+     * must be made in code logic. It would be nice to set up
+     * a data structure that would list the ContentModels with the primary datastream
+     * and a filename regex that could be used for discovering the file to use as the primary datastream.
+     *
+     * Copied the below from other islandora code bases
+     * define('ISLANDORA_OAI_DOWLOAD_LINK_DEFAULT_CMODEL_LINK_MAPPINGS',
+     * "
+     * islandora:sp_large_image_cmodel => JP2
+     * ir:thesisCModel => PDF
+     * ir:citationCModel => PDF
+     * islandora:bookCModel => PDF
+     * islandora:newspaperIssueCModel => PDF
+     * islandora:sp_pdf => OBJ
+     * islandora:sp_videoCModel => MP4");
+     * $default_dsids = <<<CMODELS
+
+     * ir:citationCModel => PDF
+     * ir:thesisCModel => PDF
+     * islandora:sp_pdf => OBJ
+     * islandora:sp_basic_image => OBJ
+     * islandora:sp_large_image_cmodel => OBJ
+     * islandora:binaryObjectCModel => OBJ
+     * islandora:sp_videoCModel => MP4
+     * islandora:sp-audioCModel => PROXY_MP3
+     * islandora:collectionCModel => FALSE
+     * islandora:compoundCModel => FALSE
+     * islandora:newspaperIssueCModel => PDF
+     * islandora:newspaperPageCModel => OBJ
+     * islandora:sp_web_archive => OBJ
+     * islandora:sp_disk_image => OBJ
+     * islandora:pageCModel => OBJ
+     * islandora:bookCModel => PDF
+     * islandora:newspaperCModel => PDF
+     * CMODELS;
+     */
+    public function correlateModelDatastreams() {
+
+        $content_models = array_keys($this->objectInfo->getContentModels());
+        foreach ($content_models as $content_model) {
+            switch ($content_model) {
+                case "ir:thesisCModel": {
+                    $this->addFullTextPDF();
+                    $this->addSupplementalFiles();
+                    $this->addCorrespondence();
+                }
+                case "ir:citationCModel": {
+
+                }
+                case "islandora:sp_large_image_cmodel";
+                /*
+                    cModel is large image and the main dsid for delivery is JP2
+                          The obj is typically a TIFF */
+                case "islandora:bookCModel";
+                case "islandora:compoundCModel";
+                case "islandora:collectionCModel";
+                case "islandora:sp-audioCModel";
+                case "islandora:transformCModel";
+                case "islandora:sp_videoCModel";
+                default: {
+
+                }
+            }
+        }
+    }
     /**
      * @return mixed
      */
@@ -774,6 +942,7 @@ EOXML;
     protected function formatDatastreamLabel($dsLabel) {
         // extract the first five words, replaceing any non-word character with _
         // note that any non-ascii character will be listed as _, and that is unfortunate
+        $dsLabel = strip_tags($dsLabel);
         $dsLabel = array_slice(preg_split('/[\W]+/', $dsLabel, 6), 0, 5);
         $dsLabel = trim(join("_", $dsLabel), "_");
         return $dsLabel;
@@ -804,7 +973,7 @@ EOXML;
                 // note that any non-ascii character will be listed as _, and that is unfortunate
                 $dsLabel = $this->formatDatastreamLabel($dsLabel);
                 $dsLabel = $dsLabel . "_DC";
-                $this->addNewDatastreamXMLContent('DC', 'x', 'application/xml', $dsLabel, $new_dc);
+                $this->addNewDatastreamContent('DC', 'x', 'application/xml', $dsLabel, $new_dc);
             }
         }
 
@@ -822,7 +991,7 @@ EOXML;
 
         $this->relationships->add($uri, $predicate, $collection);
         $this->addContentModelRelationships();
-        $this->inheritXacmlPolicies();
+
     }
 
     /**
@@ -851,19 +1020,40 @@ EOXML;
         // remove the collectionCModel, and maybe some othere?
         $this->models = array_diff($content_models, array('islandora:collectionCModel'));
     }
-
+    protected function constructEmail($correspondence) {
+        $ownermail = $this->getModsOwner();
+        $contructedEmail = "";
+        $contructedEmail.= "-------------------------------------------------\n";
+        $contructedEmail.= "FROM: Thesis Manager\n";
+        $contructedEmail.= "TO: $ownermail\n";
+        $contructedEmail.= "SUBJECT: Message from the Thesis Manager\n";
+        $contructedEmail.= "$correspondence \n";
+        return $contructedEmail;
+    }
     protected function getFormattedException($comment ) {
-
         return new Exception("Series name: " . $this->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " .$comment);
 
     }
     
-        protected function printWarningMessage($comment ) {
-            $message = t(date(DATE_ATOM) ." Series name: " . $this->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " . $comment);
-            \drupal_set_message($message, 'warning');
-            \watchdog('islandora_scan_batch_ditigal_commons', $message, null, WATCHDOG_WARNING);
-        
+    protected function printWarningMessage($comment ) {
+        $message = t(date(DATE_ATOM) ." Series name: " . $this->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " . $comment);
+        \drupal_set_message($message, 'warning');
+        \watchdog('islandora_scan_batch_ditigal_commons', $message, null, WATCHDOG_WARNING);
+    }
+    /**
+     * @return null
+     */
+    public function getObjectInfo()
+    {
+        return $this->objectInfo;
+    }
 
+    /**
+     * @return null
+     */
+    public function getMods()
+    {
+        return $this->mods;
     }
 }
 
