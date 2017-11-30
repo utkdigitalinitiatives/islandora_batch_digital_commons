@@ -11,7 +11,7 @@ define('ISLANDORA_BATCH_DIGITAL_COMMONS_ESCAPE','"');
 /**
  * Function to handle preprocessing.
  */
-function islandora_batch_digital_commons_handle_preprocessor(IslandoraBatchPreprocessor $preprocessor) {
+function islandora_batch_digital_commons_handle_preprocessor($preprocessor) {
   return $preprocessor->preprocess();
 }
 
@@ -24,7 +24,7 @@ function islandora_batch_digital_commons_handle_preprocessor(IslandoraBatchPrepr
  *
  * Queries the database for preprocessed entries, and attempts to ingest them.
  */
-function islandora_batch_digital_commons_set_operations(array $parameters) {
+function islandora_batch_digital_commons_set_operations($parameters) {
   $batch = array(
     'title' => t('Islandora Batch Ingest Digital Commons'),
     'finished' => 'islandora_batch_finished',
@@ -49,7 +49,7 @@ function islandora_batch_digital_commons_set_operations(array $parameters) {
 /**
  * Dumbly sets the batch operations and calls batch_process().
  */
-function islandora_batch_digital_commons_ingest(array $parameters) {
+function islandora_batch_digital_commons_ingest($parameters) {
   islandora_batch_set_operations($parameters);
   batch_process();
 }
