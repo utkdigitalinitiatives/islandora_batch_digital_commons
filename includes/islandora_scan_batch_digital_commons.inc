@@ -408,6 +408,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
     private $CORRESPONDENCE_DSTYPE = "M";
     private $CORRESPONDENCE_MIMETYPE = "text/plain";
     private $CORRESPONDENCE_LABEL = "messages.txt";
+    private $CACHE_EXPIRY_SECONDS = 120;
 
     // need to create an __autoload function (?)
     protected $baseName = null;
@@ -416,7 +417,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
     // Keys in objectInfo that are not to be datastreams.
     // Path to MODS->DC XSLT.
     public $modsToDcTransform = null;
-
+    public static $BATCH_OBJECT_PREFIX = "IslandoraScanBatchObjectDigitalCommons";
 
     /**
      * Constructor for the IslandoraScanBatchObject.
@@ -456,6 +457,11 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
             print date(DATE_ATOM) . 
                 " Batch Process Completed. Series name: " . $this->objectInfo->getDigitalCommonsSeries() . 
                 " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . "\n";
+            // var_dump($this);
+
+            $key =  IslandoraScanBatchObjectDigitalCommons::$BATCH_OBJECT_PREFIX . $this->id;
+            $expire_datetime = time() + $this->CACHE_EXPIRY_SECONDS;
+            cache_set($key, $this, 'cache_field', $expire_datetime);
             var_dump($this);
             return ISLANDORA_BATCH_STATE__DONE;
         } catch (Exception $e) {
@@ -699,9 +705,13 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
     protected function addDigitalCommonsXMLDatastream()
     {
         $digital_commons_xml_file_info = $this->retrieveFileInfoFromName('metadata');
+
+
         if (!isset($digital_commons_xml_file_info)) {
             $this->printWarningMessage("Does not have a digital commons metadata file!");
         } else {
+            $digital_commons_xml = file_get_contents($digital_commons_xml_file_info->getUri());
+            $this->objectInfo->setDigitalCommonsMetadata($digital_commons_xml);
             $this->addNewDatastreamFileInfo('DIGITAL_COMMONS_MD', 'application/xml', 'digital_commons_metadata', $digital_commons_xml_file_info);
         }
     }
@@ -1039,6 +1049,48 @@ EOXML;
         $message = t(date(DATE_ATOM) ." Series name: " . $this->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " . $comment);
         \drupal_set_message($message, 'warning');
         \watchdog('islandora_scan_batch_ditigal_commons', $message, null, WATCHDOG_WARNING);
+    }
+    public function setObjectActive() {
+        $modifyDatastreamArgs = array('dsFile' => $path, 'dsLabel' => $file->filename, 'lastModifiedDate' => (string) $ds->createdDate);
+        $this->
+        $object->repository->api->m->modifyDatastream($object->id, $ds->id, $modifyDatastreamArgs);
+        -  //      $object->modifyDatastream($modifyDatastreamArgs );
+    }
+    /*
+     * correlate the content model to datastreams found on the object that should be embargoed
+    */
+    public function correlateModelEmbargoDatastreams() {
+        $embargo_datastreams = array();
+        $content_models = array_keys($this->objectInfo->getContentModels());
+        foreach ($content_models as $content_model) {
+            switch ($content_model) {
+                case "ir:thesisCModel": {
+                    $datastream_names = array_keys($this->datastreams);
+                    foreach ($datastream_names as $datastream_name) {
+                        if (preg_match("/^(PDF)|(FULLTEXT)|(BIN)|(SUPPL_\d+)$/", $datastream_name)) {
+                            $embargo_datastreams[] = $datastream_name;
+                        }
+                    }
+                }
+                case "ir:citationCModel": {
+
+                }
+                case "islandora:sp_large_image_cmodel";
+                    /*
+                        cModel is large image and the main dsid for delivery is JP2
+                              The obj is typically a TIFF */
+                case "islandora:bookCModel";
+                case "islandora:compoundCModel";
+                case "islandora:collectionCModel";
+                case "islandora:sp-audioCModel";
+                case "islandora:transformCModel";
+                case "islandora:sp_videoCModel";
+                default: {
+
+                }
+            }
+        }
+        return $embargo_datastreams;
     }
     /**
      * @return null

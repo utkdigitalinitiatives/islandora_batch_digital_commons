@@ -102,17 +102,61 @@ function retrieveDataFromDsvFile($data_file_path, $delimiter_char = ISLANDORA_BA
     }
     return $dsv_data;
 }
-function islandora_batch_digital_commons_islandora_batch_object_processed(IslandoraScanBatchObjectDigitalCommons $ingest_object, $is_object_state_done)
+function islandora_batch_digital_commons_islandora_batch_object_processed(AbstractFedoraObject $ingest_object, $is_object_state_done)
 {
     if ($is_object_state_done) {
-        if ($is_object_state_done) {
-            $objectProfile = $ingest_object->objectProfile;
-            if (isset($objectProfile) && is_array($objectProfile)) {
-                trace_ext_workflow__printWarningMessage(t('%pid ready for islandora_batch_digital_commons manipulation', array('%pid' => $ingest_object->id)));
-            } else {
-                trace_ext_workflow__printWarningMessage(t('%pid not ready for islandora_batch_digital_commons manipulation', array('%pid' => $ingest_object->id)));
+        $key = IslandoraScanBatchObjectDigitalCommons::$BATCH_OBJECT_PREFIX . $ingest_object->id;
+        $cached_object = cache_get($key, 'cache_field');
+        $islandoraScanBatchObjectDigitalCommons = $cached_object->data;
+        echo $ingest_object->id . " and " . $islandoraScanBatchObjectDigitalCommons->id . "\n";
+        if (isset($islandoraScanBatchObjectDigitalCommons) && is_a($islandoraScanBatchObjectDigitalCommons, 'IslandoraScanBatchObjectDigitalCommons')) {
+            # determine if the object needs to be embargoed or withdrawn
+
+            $object_info = $islandoraScanBatchObjectDigitalCommons->getObjectInfo();
+            $is_object_withdrawn = false;
+            $digital_commons_metadata_xml = $object_info->getDigitalCommonsMetadata();
+            $digital_commons_metadata_domDocument = new DOMDocument();
+            $digital_commons_metadata_domDocument->loadXML($digital_commons_metadata_xml);
+            $digital_commons_metadata_xpath = new DOMXPath($digital_commons_metadata_domDocument);
+            // Withdrawn
+            $digital_commons_metadata_withdrawn_datestr = $digital_commons_metadata_xpath->evaluate('string(//documents/document/withdrawn)');
+            echo "Withdrawal :{$digital_commons_metadata_withdrawn_datestr}:\n";
+            if (! empty($digital_commons_metadata_withdrawn_datestr)) {
+
+                $is_object_withdrawn = true;
+                // embargo the entire object
+                islandora_scholar_embargo_set_embargo($ingest_object);
+                echo "Withdrawn";
             }
+
+            if (! $is_object_withdrawn) {
+                // Embargo
+                $digital_commons_metadata_embargo_datestr = $digital_commons_metadata_xpath->evaluate('string(//documents/document/fields/field[@name="embargo_date"]/value)');
+                if (isset($digital_commons_metadata_embargo_datestr)) {
+                    echo "embargo date string {$digital_commons_metadata_embargo_datestr}\n";
+                    $digital_commons_metadata_embargo_timestamp = strtotime($digital_commons_metadata_embargo_datestr);
+                    if (isset($digital_commons_metadata_embargo_timestamp)) {
+                        echo "embargo date time {$digital_commons_metadata_embargo_timestamp}\n";
+                        if ($digital_commons_metadata_embargo_timestamp > time()) {
+                            $datastreams = $islandoraScanBatchObjectDigitalCommons->correlateModelEmbargoDatastreams();
+                            // needs xsd:dateTime string -- CCYY-MM-DDThh:mm:ss[Z|(+|-)hh:mm]
+                            //embargo the datastreams for the object
+                            $digital_commons_metadata_embargo_date = date( 'c', $digital_commons_metadata_embargo_timestamp);
+                            if ((sizeof($datastreams) > 0) && isset($digital_commons_metadata_embargo_date)) {
+                                echo "embargo dateTime {$digital_commons_metadata_embargo_date}\n";
+                                islandora_scholar_embargo_set_embargo($ingest_object, $datastreams,$digital_commons_metadata_embargo_date );
+                            }
+                        }
+                    echo "{$digital_commons_metadata_embargo_date}\n";
+                    }
+                }
+            }
+            # determine if the object needs revisions added to the main datastream (what is the main datastream ?)
+
+        } else {
+            new Exception("Unable to retrieve cache for the object " . $ingest_object->id . "! Unable to determine revision history and embargo");
         }
+
     }
 }
 function islandora_batch_digital_commons__printWarningMessage($comment ) {
