@@ -201,10 +201,7 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
                 $grouped[$file_object->getDigitalCommonsObjectId()]->addFileArray($file_object);
             }
         }
- /*       foreach ($grouped as $digital_commons_id => $object) {
-            echo $digital_commons_id . "\n";
-        }
- */
+
         return $grouped;
     }
 
@@ -445,6 +442,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
     public function batchProcess()
     {
         try {
+            echo "Batch Process begins with the ID " . $this->id . "\n";
             // Use object_info to create some datastreams.
             $this->addDigitalCommonsXMLDatastream();
             $this->addModsDatastream();
@@ -457,12 +455,10 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
             print date(DATE_ATOM) . 
                 " Batch Process Completed. Series name: " . $this->objectInfo->getDigitalCommonsSeries() . 
                 " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . "\n";
-            // var_dump($this);
 
             $key =  IslandoraScanBatchObjectDigitalCommons::$BATCH_OBJECT_PREFIX . $this->id;
             $expire_datetime = time() + $this->CACHE_EXPIRY_SECONDS;
             cache_set($key, $this, 'cache_field', $expire_datetime);
-            var_dump($this);
             return ISLANDORA_BATCH_STATE__DONE;
         } catch (Exception $e) {
             $message = t(date(DATE_ATOM) ." Series name: " . $this->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " . $e->getMessage());
@@ -1050,12 +1046,7 @@ EOXML;
         \drupal_set_message($message, 'warning');
         \watchdog('islandora_scan_batch_ditigal_commons', $message, null, WATCHDOG_WARNING);
     }
-    public function setObjectActive() {
-        $modifyDatastreamArgs = array('dsFile' => $path, 'dsLabel' => $file->filename, 'lastModifiedDate' => (string) $ds->createdDate);
-        $this->
-        $object->repository->api->m->modifyDatastream($object->id, $ds->id, $modifyDatastreamArgs);
-        -  //      $object->modifyDatastream($modifyDatastreamArgs );
-    }
+
     /*
      * correlate the content model to datastreams found on the object that should be embargoed
     */

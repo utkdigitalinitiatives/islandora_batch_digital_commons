@@ -104,14 +104,15 @@ function retrieveDataFromDsvFile($data_file_path, $delimiter_char = ISLANDORA_BA
 }
 function islandora_batch_digital_commons_islandora_batch_object_processed(AbstractFedoraObject $ingest_object, $is_object_state_done)
 {
+    echo "islandora_batch_digital_commons_islandora_batch_object_processed\n";
     if ($is_object_state_done) {
         $key = IslandoraScanBatchObjectDigitalCommons::$BATCH_OBJECT_PREFIX . $ingest_object->id;
         $cached_object = cache_get($key, 'cache_field');
         $islandoraScanBatchObjectDigitalCommons = $cached_object->data;
-        echo $ingest_object->id . " and " . $islandoraScanBatchObjectDigitalCommons->id . "\n";
+
         if (isset($islandoraScanBatchObjectDigitalCommons) && is_a($islandoraScanBatchObjectDigitalCommons, 'IslandoraScanBatchObjectDigitalCommons')) {
             # determine if the object needs to be embargoed or withdrawn
-
+            echo $islandoraScanBatchObjectDigitalCommons->id . "\n";
             $object_info = $islandoraScanBatchObjectDigitalCommons->getObjectInfo();
             $is_object_withdrawn = false;
             $digital_commons_metadata_xml = $object_info->getDigitalCommonsMetadata();
@@ -120,13 +121,13 @@ function islandora_batch_digital_commons_islandora_batch_object_processed(Abstra
             $digital_commons_metadata_xpath = new DOMXPath($digital_commons_metadata_domDocument);
             // Withdrawn
             $digital_commons_metadata_withdrawn_datestr = $digital_commons_metadata_xpath->evaluate('string(//documents/document/withdrawn)');
-            echo "Withdrawal :{$digital_commons_metadata_withdrawn_datestr}:\n";
+            echo "Withdraw :{$digital_commons_metadata_withdrawn_datestr}:\n";
             if (! empty($digital_commons_metadata_withdrawn_datestr)) {
 
                 $is_object_withdrawn = true;
                 // embargo the entire object
                 islandora_scholar_embargo_set_embargo($ingest_object);
-                echo "Withdrawn";
+                echo "Withdrawn\n";
             }
 
             if (! $is_object_withdrawn) {
@@ -136,9 +137,12 @@ function islandora_batch_digital_commons_islandora_batch_object_processed(Abstra
                     echo "embargo date string {$digital_commons_metadata_embargo_datestr}\n";
                     $digital_commons_metadata_embargo_timestamp = strtotime($digital_commons_metadata_embargo_datestr);
                     if (isset($digital_commons_metadata_embargo_timestamp)) {
-                        echo "embargo date time {$digital_commons_metadata_embargo_timestamp}\n";
-                        if ($digital_commons_metadata_embargo_timestamp > time()) {
+                        $currentTime = time();
+                        echo "embargo date time {$digital_commons_metadata_embargo_timestamp} current time {$currentTime}\n";
+
+                        if ($digital_commons_metadata_embargo_timestamp > $currentTime) {
                             $datastreams = $islandoraScanBatchObjectDigitalCommons->correlateModelEmbargoDatastreams();
+                            var_dump($datastreams);
                             // needs xsd:dateTime string -- CCYY-MM-DDThh:mm:ss[Z|(+|-)hh:mm]
                             //embargo the datastreams for the object
                             $digital_commons_metadata_embargo_date = date( 'c', $digital_commons_metadata_embargo_timestamp);
@@ -147,7 +151,7 @@ function islandora_batch_digital_commons_islandora_batch_object_processed(Abstra
                                 islandora_scholar_embargo_set_embargo($ingest_object, $datastreams,$digital_commons_metadata_embargo_date );
                             }
                         }
-                    echo "{$digital_commons_metadata_embargo_date}\n";
+
                     }
                 }
             }
