@@ -44,6 +44,8 @@ class DigitalCommonsObjectInfo {
         // the xml returned from the mods file, cache it so that it can be re-used in several methods
         protected $modsXML = null;
 
+        protected $digitalCommonsMetadata = null;
+
         // the dom representation of the modsXML assigned to this object
         protected $modsDOM = null;
 
@@ -187,6 +189,22 @@ class DigitalCommonsObjectInfo {
         public function setDigitalCommonsSeries($digitalCommonsSeries) {
             $this->digitalCommonsSeries = $digitalCommonsSeries;
         }
+
+    /**
+     * @return null
+     */
+    public function getDigitalCommonsMetadata()
+    {
+        return $this->digitalCommonsMetadata;
+    }
+
+    /**
+     * @param null $digitalCommonsMetadata
+     */
+    public function setDigitalCommonsMetadata($digitalCommonsMetadata)
+    {
+        $this->digitalCommonsMetadata = $digitalCommonsMetadata;
+    }
 
 
 
