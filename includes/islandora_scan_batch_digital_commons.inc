@@ -416,6 +416,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
     public $modsToDcTransform = null;
     public static $BATCH_OBJECT_PREFIX = "IslandoraScanBatchObjectDigitalCommons";
 
+    protected $dsLabelToURI = array();
     /**
      * Constructor for the IslandoraScanBatchObject.
      */
@@ -442,14 +443,13 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
     public function batchProcess()
     {
         try {
-            echo "Batch Process begins with the ID " . $this->id . "\n";
             // Use object_info to create some datastreams.
             $this->addDigitalCommonsXMLDatastream();
             $this->addModsDatastream();
             $this->addDCDatastream();
             $this->initializeObjectInfo();
 
-            $this->correlateModelDatastreams();
+            $this->addModelDatastreams();
 
             $this->addRelationships();
             print date(DATE_ATOM) . 
@@ -667,6 +667,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
         $datastream->checksumType = 'SHA-256';
         $datastream->state = "A";
         $datastream->setContentFromFile($file_info->getUri());
+        $dsLabelToURI[] = array($dsName => $file_info->getUri());
         if (!isset($datastream->content)) {
             $this->printWarningMessage($file_info->getUri() . " Unable to read content!");
         } else {
@@ -873,7 +874,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
      * islandora:newspaperCModel => PDF
      * CMODELS;
      */
-    public function correlateModelDatastreams() {
+    public function addModelDatastreams() {
 
         $content_models = array_keys($this->objectInfo->getContentModels());
         foreach ($content_models as $content_model) {
@@ -901,6 +902,81 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
                 }
             }
         }
+    }
+    /**
+     * This associates the main file to the prime datastream of the Object Model being created.
+     * It also may perform any Object Model specific processing.
+     * Consider this the extention point in the code.
+     * The function should be overwritten upon use by another institution other than
+     * the Univserity of Tennessee. I assume that institutions may define or discover
+     * their main datastream differently than we do, thus I have made the function public
+     * so that it may be overwritten in a descendant.
+     *
+     * Currently all associations between prime datastream and Object Model
+     * must be made in code logic. It would be nice to set up
+     * a data structure that would list the ContentModels with the primary datastream
+     * and a filename regex that could be used for discovering the file to use as the primary datastream.
+     *
+     * Copied the below from other islandora code bases
+     * define('ISLANDORA_OAI_DOWLOAD_LINK_DEFAULT_CMODEL_LINK_MAPPINGS',
+     * "
+     * islandora:sp_large_image_cmodel => JP2
+     * ir:thesisCModel => PDF
+     * ir:citationCModel => PDF
+     * islandora:bookCModel => PDF
+     * islandora:newspaperIssueCModel => PDF
+     * islandora:sp_pdf => OBJ
+     * islandora:sp_videoCModel => MP4");
+     * $default_dsids = <<<CMODELS
+
+     * ir:citationCModel => PDF
+     * ir:thesisCModel => PDF
+     * islandora:sp_pdf => OBJ
+     * islandora:sp_basic_image => OBJ
+     * islandora:sp_large_image_cmodel => OBJ
+     * islandora:binaryObjectCModel => OBJ
+     * islandora:sp_videoCModel => MP4
+     * islandora:sp-audioCModel => PROXY_MP3
+     * islandora:collectionCModel => FALSE
+     * islandora:compoundCModel => FALSE
+     * islandora:newspaperIssueCModel => PDF
+     * islandora:newspaperPageCModel => OBJ
+     * islandora:sp_web_archive => OBJ
+     * islandora:sp_disk_image => OBJ
+     * islandora:pageCModel => OBJ
+     * islandora:bookCModel => PDF
+     * islandora:newspaperCModel => PDF
+     * CMODELS;
+     *
+     * returns an array of keyvalue pairs
+     */
+    public function correlateModelDatastreams() {
+        $correlations=array();
+        $content_models = array_keys($this->objectInfo->getContentModels());
+        foreach ($content_models as $content_model) {
+            switch ($content_model) {
+                case "ir:thesisCModel": {
+                    $correlations[] = array('PDF' => '^text\.pdf\.\d+.+$');
+                }
+                case "ir:citationCModel": {
+
+                }
+                case "islandora:sp_large_image_cmodel";
+                    /*
+                        cModel is large image and the main dsid for delivery is JP2
+                              The obj is typically a TIFF */
+                case "islandora:bookCModel";
+                case "islandora:compoundCModel";
+                case "islandora:collectionCModel";
+                case "islandora:sp-audioCModel";
+                case "islandora:transformCModel";
+                case "islandora:sp_videoCModel";
+                default: {
+
+                }
+            }
+        }
+        return $correlations;
     }
     /**
      * @return mixed
@@ -1014,6 +1090,13 @@ EOXML;
         }
     }
 
+    public function getURIforLabel($label) {
+        foreach($this->dsLabelToURI as $association) {
+            if (array_key_exists($label, $association)) {
+                return $association[$label];
+            }
+        }
+    }
     /**
      * Add the content model relationship(s).
      * Each object ingested should only have a single model applied
@@ -1058,7 +1141,7 @@ EOXML;
                 case "ir:thesisCModel": {
                     $datastream_names = array_keys($this->datastreams);
                     foreach ($datastream_names as $datastream_name) {
-                        if (preg_match("/^(PDF)|(FULLTEXT)|(BIN)|(SUPPL_\d+)$/", $datastream_name)) {
+                        if (preg_match("/^(PDF)|(FULL_TEXT)|(SUPPL_\d+)$/", $datastream_name)) {
                             $embargo_datastreams[] = $datastream_name;
                         }
                     }
@@ -1083,6 +1166,31 @@ EOXML;
         }
         return $embargo_datastreams;
     }
+
+    /*
+     * iterate through all the files that conform to the pattern
+     * for supplemental files
+     * Add them as datastreams
+     */
+    public function findRevisionFiles($pattern)
+    {
+        $supplFileInfoMatch = array();
+        // get a list of files that conform to the supplementary file pattern
+        // that have been found in the zip/filesystem path
+        $fileInfoArray = $this->objectInfo->getFileArray();
+        foreach ($fileInfoArray as $file_info) {
+            // supplemental files will begin with digits
+            // these digits need to be stripped off in order to conform
+            // to the files listed in the mods record
+            $filename = $file_info->getFilename();
+            if (preg_match("/{$pattern}/", $filename)) {
+                $supplFileInfoMatch[] = $file_info->getUri();
+            }
+        }
+        return $supplFileInfoMatch;
+    }
+
+
     /**
      * @return null
      */
