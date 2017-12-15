@@ -53,6 +53,10 @@ class DigitalCommonsObjectInfo {
         protected $title = null;
 
         protected $digitalCommonsSeries = null;
+
+        protected $digitalCommonsObjectFullPath = null;
+
+        protected $archiveTopLevelDirectoryFullPath = null;
         
         public function __construct() {
             
@@ -206,6 +210,37 @@ class DigitalCommonsObjectInfo {
         $this->digitalCommonsMetadata = $digitalCommonsMetadata;
     }
 
+    /**
+     * @return null
+     */
+    public function getDigitalCommonsObjectFullPath()
+    {
+        return $this->digitalCommonsObjectFullPath;
+    }
+
+    /**
+     * @param null $digitalCommonsObjectFullPath
+     */
+    public function setDigitalCommonsObjectFullPath($digitalCommonsObjectFullPath)
+    {
+        $this->digitalCommonsObjectFullPath = $digitalCommonsObjectFullPath;
+    }
+
+    /**
+     * @return null
+     */
+    public function getArchiveTopLevelDirectoryFullPath()
+    {
+        return $this->archiveTopLevelDirectoryFullPath;
+    }
+
+    /**
+     * @param null $archiveTopLevelDirectoryFullPath
+     */
+    public function setArchiveTopLevelDirectoryFullPath($archiveTopLevelDirectoryFullPath)
+    {
+        $this->archiveTopLevelDirectoryFullPath = $archiveTopLevelDirectoryFullPath;
+    }
 
 
 }

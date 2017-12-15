@@ -26,9 +26,7 @@ class DigitalCommonsFileInfo {
         protected $ext; //String
         // Each file_object represents a Fedora DataStream
         // The parent directory of each file(DS) indicates an ObjectID in Digital Commons
-        
-        // The directory in which the file is found
-        protected $objectDirectory; //String
+
         
         // A unique identifier for the object that holds the file
         protected $digitalCommonsObjectId; //String
@@ -56,9 +54,6 @@ class DigitalCommonsFileInfo {
             return $this->ext;
         }
 
-        public function getObjectDirectory() {
-            return $this->objectDirectory;
-        }
 
         public function getDigitalCommonsObjectId() {
             return $this->digitalCommonsObjectId;
@@ -84,9 +79,6 @@ class DigitalCommonsFileInfo {
             $this->ext = $ext;
         }
 
-        public function setObjectDirectory($objectDirectory) {
-            $this->objectDirectory = $objectDirectory;
-        }
 
         public function setDigitalCommonsObjectId($digitalCommonsObjectId) {
             $this->digitalCommonsObjectId = $digitalCommonsObjectId;

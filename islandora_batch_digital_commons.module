@@ -151,28 +151,35 @@ function islandora_batch_digital_commons_islandora_batch_object_processed(Abstra
                     }
                 }
             }
-            # determine if the object needs revisions added to the main datastream (what is the main datastream ?)
+            # determine if the object needs revisions added to the main datastream
             $correlations = $islandoraScanBatchObjectDigitalCommons->correlateModelDatastreams();
 
+            if (count($correlations) > 0) {
+                foreach ($correlations as $correlation) {
+                    # retrieve any matching patterns that can be applied to files
+                    foreach ($correlation as $key => $value) {
+                        $returnDatastream = $ingest_object->repository->api->m->getDatastream($ingest_object->id, $key);
+                        $datastreamCreatedTimestamp = strtotime($returnDatastream['dsCreateDate']);
+                        $responses = array();
+                        $revisionsFileList = $islandoraScanBatchObjectDigitalCommons->findRevisionFiles($value);
 
-            foreach ($correlations as $correlation) {
-                # retrieve any matching patterns that can be applied to files
-                foreach ($correlation as $key => $value) {
-                    $returnDatastream = $ingest_object->repository->api->m->getDatastream($ingest_object->id, $key);
-                    $datastreamCreatedTimestamp = strtotime($returnDatastream['dsCreateDate']);
-                    $responses = array();
-                    $revisionsFileList = $islandoraScanBatchObjectDigitalCommons->findRevisionFiles($value);
+                        if (isset($revisionsFileList)) {
+                            $responses = islandora_batch_digital_commons_apply_revisions($ingest_object, $key, $revisionsFileList);
+                        }
 
-                    if (isset($revisionsFileList)) {
-                        $responses[] = islandora_batch_digital_commons_apply_revisions($ingest_object, $key, $revisionsFileList);
-                    }
-                    if (sizeof($responses) > 0) {
-                        // make the original the top revision again
-                        $modifyDatastreamArgs = array('dsFile' => $islandoraScanBatchObjectDigitalCommons->getURIforLabel($key));
-                        $ingest_object->repository->api->m->modifyDatastream($ingest_object->id, $key, $modifyDatastreamArgs);
-                        $purgeDatastreamArgs = array('startDT' => $returnDatastream['dsCreateDate'] , 'endDT' => $returnDatastream['dsCreateDate'] , 'logMessage' => "delete the replaced original");
-                        $return = $ingest_object->repository->api->m->purgeDatastream($ingest_object->id, $key,$purgeDatastreamArgs);
+                        $number_responses = count($responses);
+                        if (count($responses) > 0) {
+                            // make the original the top revision again
+                            $file_uri = $islandoraScanBatchObjectDigitalCommons->getFulltextURL();
+                            $modifyDatastreamArgs = array('dsLocation' => $file_uri);
+                            $ingest_object->repository->api->m->modifyDatastream($ingest_object->id, $key, $modifyDatastreamArgs);
+                            $purgeDatastreamArgs = array('startDT' => $returnDatastream['dsCreateDate'] , 'endDT' => $returnDatastream['dsCreateDate'] , 'logMessage' => "delete the replaced original");
+                            $return = $ingest_object->repository->api->m->purgeDatastream($ingest_object->id, $key,$purgeDatastreamArgs);
 
+                        } else {
+                            $modifyDatastreamArgs = array('dsLocation' => $file_uri);
+                            $ingest_object->repository->api->m->modifyDatastream($ingest_object->id, $key, $modifyDatastreamArgs);
+                        }
                     }
                 }
             }
