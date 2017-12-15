@@ -118,11 +118,11 @@ function islandora_batch_digital_commons_islandora_batch_object_processed(Abstra
             $digital_commons_metadata_domDocument = new DOMDocument();
             $digital_commons_metadata_domDocument->loadXML($digital_commons_metadata_xml);
             $digital_commons_metadata_xpath = new DOMXPath($digital_commons_metadata_domDocument);
-            // Withdrawn
+
             $digital_commons_metadata_withdrawn_datestr = $digital_commons_metadata_xpath->evaluate('string(//documents/document/withdrawn)');
-
+            // Withdraw
             if (! empty($digital_commons_metadata_withdrawn_datestr)) {
-
+                // verification that the date string returned is a valid
                 $is_object_withdrawn = true;
                 // embargo the entire object
                 islandora_scholar_embargo_set_embargo($ingest_object);
@@ -133,12 +133,14 @@ function islandora_batch_digital_commons_islandora_batch_object_processed(Abstra
                 // Embargo
                 $digital_commons_metadata_embargo_datestr = $digital_commons_metadata_xpath->evaluate('string(//documents/document/fields/field[@name="embargo_date"]/value)');
                 if (isset($digital_commons_metadata_embargo_datestr)) {
-
+                    // if we do not have and embargo date, then we are done here
                     $digital_commons_metadata_embargo_timestamp = strtotime($digital_commons_metadata_embargo_datestr);
                     if (isset($digital_commons_metadata_embargo_timestamp)) {
+                        // verification that the timestamp is a valid date
                         $currentTime = time();
 
                         if ($digital_commons_metadata_embargo_timestamp > $currentTime) {
+                            // embargo timestamp occurs after the current time, so set up an embargo of all the datastreams
                             $datastreams = $islandoraScanBatchObjectDigitalCommons->correlateModelEmbargoDatastreams();
                             // needs xsd:dateTime string -- CCYY-MM-DDThh:mm:ss[Z|(+|-)hh:mm]
                             //embargo the datastreams for the object
@@ -151,6 +153,8 @@ function islandora_batch_digital_commons_islandora_batch_object_processed(Abstra
                     }
                 }
             }
+
+            // past revisions of the main datastream (mostly a PDF)
             # determine if the object needs revisions added to the main datastream
             $correlations = $islandoraScanBatchObjectDigitalCommons->correlateModelDatastreams();
 
@@ -167,18 +171,36 @@ function islandora_batch_digital_commons_islandora_batch_object_processed(Abstra
                             $responses = islandora_batch_digital_commons_apply_revisions($ingest_object, $key, $revisionsFileList);
                         }
 
-                        $number_responses = count($responses);
                         if (count($responses) > 0) {
                             // make the original the top revision again
                             $file_uri = $islandoraScanBatchObjectDigitalCommons->getFulltextURL();
                             $modifyDatastreamArgs = array('dsLocation' => $file_uri);
-                            $ingest_object->repository->api->m->modifyDatastream($ingest_object->id, $key, $modifyDatastreamArgs);
+                            sleep(2);
+                            $return = $ingest_object->repository->api->m->modifyDatastream($ingest_object->id, $key, $modifyDatastreamArgs);
+                            if (count($return) == 0) {
+                                // this assumes that if the modification failed, we would not get an array
+                                islandora_batch_digital_commons__printWarningMessage($ingest_object->id . " unable to modify original datastream from location " . $file_uri . " :results {$datetime_modified}\n");
+                            }
+                            // remove the original PDF that was sent is now the last in the revision chain
                             $purgeDatastreamArgs = array('startDT' => $returnDatastream['dsCreateDate'] , 'endDT' => $returnDatastream['dsCreateDate'] , 'logMessage' => "delete the replaced original");
                             $return = $ingest_object->repository->api->m->purgeDatastream($ingest_object->id, $key,$purgeDatastreamArgs);
+                            if (count($return) == 0) {
+                                // this assumes that if the purge failed, we would not get an array
+                                // did not delete any datastreams
+                                islandora_batch_digital_commons__printWarningMessage($ingest_object->id . " unable to purge original datastream\n");
+                            }
 
                         } else {
+                            // there are no revisions, but we want to make the unmodified version of the object
+                            // to be the latest revision, not the copy with the BePress coverpage
+                            $file_uri = $islandoraScanBatchObjectDigitalCommons->getFulltextURL();
                             $modifyDatastreamArgs = array('dsLocation' => $file_uri);
-                            $ingest_object->repository->api->m->modifyDatastream($ingest_object->id, $key, $modifyDatastreamArgs);
+                            sleep(2);
+                            $return = $ingest_object->repository->api->m->modifyDatastream($ingest_object->id, $key, $modifyDatastreamArgs);
+                            if (count($return) == 0) {
+                                // this assumes that if the modification failed, we would not get an array
+                                islandora_batch_digital_commons__printWarningMessage($ingest_object->id . " unable to modify original datastream from location " . $file_uri . " :results {$datetime_modified}\n");
+                            }
                         }
                     }
                 }
