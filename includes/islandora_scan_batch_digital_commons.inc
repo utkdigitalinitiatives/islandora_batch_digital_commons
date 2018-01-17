@@ -244,7 +244,7 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
         // passed in as a parameter to IslandoraScanBatchDigitalCommons
         $object_info->setCollection($this->getCollectionPID());
         $object_info->setDigitalCommonsSeries($this->getDigitalCommonsSeriesName());
-//        $object_info->setArchiveTopLevelDirectoryFullPath($this->getTarget());
+        $object_info->setArchiveTopLevelDirectoryFullPath($this->getTarget());
         if (isset($this->parameters['collection_relationship_pred'])) {
             $object_info->setCollectionRelationshipPred($this->parameters['collection_relationship_pred']);
         }
@@ -299,7 +299,7 @@ class IslandoraScanBatchDigitalCommons extends IslandoraScanBatch
             // The ObjectID grouping all the datastreams needs to be unique
             //  for the collection.
             //
-            // Concatentating all the subjectories together along with the
+            // Concatentate all the subdirectories together along with the
             // object id will make the object id unique.
             // For example, the name of the collection may be journalx
             // but underneath the directory journalx may be
@@ -469,7 +469,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
     public $modsToDcTransform = null;
     public static $BATCH_OBJECT_PREFIX = "IslandoraScanBatchObjectDigitalCommons";
     private $batchProcessLogFileName = "IslandoraScanBatchObjectDigitalCommons.log";
-    private $batchProcessLogFile;
+    private  $batchProcessLogFile;
     protected $dsLabelToURI = array();
     private $digitalCommonsFulltextURL = null;
 
@@ -516,14 +516,8 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
                ": Batch Process Completed. Series name: " . $this->objectInfo->getDigitalCommonsSeries() .
                " - TRACE Id: " . $this->id .
                " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . "\n";
+           $this->logDigitalCommonsBatch($log_message);
 
-           $resource = fopen ( $this->batchProcessLogFile, 'a+' );
-           if ($resource) {
-               fwrite($resource, $log_message);
-               fclose($resource);
-           } else {
-               \watchdog($log_message, WATCHDOG_INFO);
-           }
 
             $key =  IslandoraScanBatchObjectDigitalCommons::$BATCH_OBJECT_PREFIX . $this->id;
             $expire_datetime = time() + $this->CACHE_EXPIRY_SECONDS;
@@ -567,28 +561,76 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
      */
     protected function addSupplementalModsFiles($modsSupplementaryFileMap)
     {
-        // get a list of files that conform to the supplementary file pattern
+        foreach ($modsSupplementaryFileMap as $suppl_file) {
+            $suppl_file_string = print_r($suppl_file, true);
+            $this->logDigitalCommonsBatch($suppl_file_string . "\n");
+            $suppl_file_num = null;
+           $underscore_Position = strpos($suppl_file->ds_name, '_');
+           if (isset($underscore_Position) && $underscore_Position > 0) {
+               $suppl_file_num = substr($suppl_file->ds_name, $underscore_Position + 1);
+           } else {
+               $suppl_file_string = print_r($suppl_file, true);
+               $exception = new Exception("Unable to determine supplemental file from $suppl_file_string");
+               throw $exception;
+           }
+           // our naming of the supplemental DS Name using an origin index of 1
+            // while the name of the filesystem files using an origin index of 0
+            $suppl_file_num = $suppl_file_num - 1;
+            $this->logDigitalCommonsBatch("suppl number = $suppl_file_num \n");
+           if (isset($suppl_file_num)) {
+               $found_suppl = false;
+                foreach ($this->objectInfo->getFileArray() as $file_info) {
+                    $file_info_string = print_r($file_info, true);
+                    $this->logDigitalCommonsBatch($file_info_string . "\n");
+                    if (preg_match("/^${suppl_file_num}\-(.+)$/", $file_info->getFilename(), $supplFileInfoMatch) && !$file_info->isProcessed()) {
+                        $canonicalSupplFileName = $supplFileInfoMatch[1];
+                        $this->logDigitalCommonsBatch("$suppl_file->ds_title === $canonicalSupplFileName \n");
+                        if ($suppl_file->ds_title === $canonicalSupplFileName) {
+                            $dsName = $suppl_file->ds_name;
+                            $dsMimetype = $suppl_file->mime_type;
+                            $this->logDigitalCommonsBatch("uploading $dsName $dsMimetype, $canonicalSupplFileName \n");
+                            $this->addNewDatastreamFileInfo($dsName, $dsMimetype, $canonicalSupplFileName, $file_info);
+                            $found_suppl = true;
+                            break;
+                        }
+                    }
+                }
+                if (! $found_suppl) {
+                    $exception = new Exception("Unable to determine supplemental file number from $suppl_file_string");
+                    throw $exception;
+                }
+           } else {
+               $exception = new Exception("Unable to determine supplemental file number from $suppl_file_string");
+               throw $exception;
+           }
+        }
+ /*       // get a list of files that conform to the supplementary file pattern
         // that have been found in the zip/filesystem path
         foreach ($this->objectInfo->getFileArray() as $file_info) {
             // supplemental files will begin with digits
             // these digits need to be stripped off in order to conform
             // to the files listed in the mods record
+            $file_info_string = print_r($file_info, true);
+            $this->logDigitalCommonsBatch($file_info_string);
             $supplFileInfoMatch = array();
 
             if (preg_match("/^\d+\-(.+)$/", $file_info->getFilename(), $supplFileInfoMatch) && !$file_info->isProcessed()) {
                 $canonicalSupplFileName = $supplFileInfoMatch[1];
+                $this->logDigitalCommonsBatch($canonicalSupplFileName);
                 if (! isset($modsSupplementaryFileMap[$canonicalSupplFileName]) && isset($modsSupplementaryFileMap[$file_info->getFilename()])) {
                     $canonicalSupplFileName =$file_info->getFilename();
                 }
                 if (isset($modsSupplementaryFileMap[$canonicalSupplFileName])) {
                     // add the stream and mark it as done, increment suppl_index to a higher value
                     // if the next suppl is higher than the current suppl_index
+
                     $dsName = $modsSupplementaryFileMap[$canonicalSupplFileName]->ds_name;
                     $dsMimetype = $modsSupplementaryFileMap[$canonicalSupplFileName]->mime_type;
+                    $this->logDigitalCommonsBatch($dsName);
                     $this->addNewDatastreamFileInfo($dsName, $dsMimetype, $canonicalSupplFileName, $file_info);
                 }
             }
-        }
+        } */
     }
 
     /*
@@ -605,7 +647,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
     protected function getModsSupplementalFileMap()
     {
         $modsSupplementalFiles = array();
-        $missingDSNameSupplimentalFiles = array();
+        $missingDSNameSupplementalFiles = array();
         $mods_dom = $this->getModsDom();
         $mods_xpath = new DOMXPath($mods_dom);
         $mods_xpath->registerNamespace('m', 'http://www.loc.gov/mods/v3');
@@ -651,13 +693,14 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
             if (isset($item_ds_name)) {
                 $modsSupplementalFile = new stdClass();
                 $modsSupplementalFile->ds_name = $item_ds_name;
+                $modsSupplementalFile->ds_title = $item_title;
                 $modsSupplementalFile->mime_type = $item_mime_type;
-                $modsSupplementalFiles[$item_title] = $modsSupplementalFile;
+                $modsSupplementalFiles[] = $modsSupplementalFile;
             } else {
                 $modsSupplementalFile = new stdClass();
                 $modsSupplementalFile->mime_type = $item_mime_type;
-                $modsSupplementalFiles[$item_title] = $modsSupplementalFile;
-                $missingDSNameSupplimentalFiles[] = $modsSupplementalFile;
+                $modsSupplementalFile->ds_title = $modsSupplementalFile;
+                $missingDSNameSupplementalFiles[] = $modsSupplementalFile;
             }
         }
 
@@ -1023,7 +1066,7 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
                 case "ir:thesisCModel": {
                     $this->addFullTextPDF();
                     $this->addSupplementalFiles();
-                    $this->addCorrespondence();
+//                    $this->addCorrespondence();
                 }
                 case "ir:citationCModel": {
 
@@ -1043,6 +1086,45 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
                 }
             }
         }
+    }
+    /**
+     * This associates the main file to the prime datastream of the Object Model being created.
+     * It also may perform any Object Model specific processing.
+     * Consider this the extention point in the code.
+     * The function should be overwritten upon use by another institution other than
+     * the Univserity of Tennessee. I assume that institutions may define or discover
+     * their main datastream differently than we do, thus I have made the function public
+     * so that it may be overwritten in a descendant.
+     *
+     * returns an array of keyvalue pairs
+     */
+    public function correlateModelDatastreams() {
+        $correlations=array();
+        $content_models = array_keys($this->objectInfo->getContentModels());
+        foreach ($content_models as $content_model) {
+            switch ($content_model) {
+                case "ir:thesisCModel": {
+                    $correlations[] = array('PDF' => '^(\w+|\d+\_\w+.pdf+$');
+                }
+                case "ir:citationCModel": {
+
+                }
+                case "islandora:sp_large_image_cmodel";
+                    /*
+                        cModel is large image and the main dsid for delivery is JP2
+                              The obj is typically a TIFF */
+                case "islandora:bookCModel";
+                case "islandora:compoundCModel";
+                case "islandora:collectionCModel";
+                case "islandora:sp-audioCModel";
+                case "islandora:transformCModel";
+                case "islandora:sp_videoCModel";
+                default: {
+
+                }
+            }
+        }
+        return $correlations;
     }
     /**
      * This associates the main file to the prime datastream of the Object Model being created.
@@ -1091,13 +1173,16 @@ class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
      *
      * returns an array of keyvalue pairs
      */
-    public function correlateModelDatastreams() {
+    public function associateModelDatastreamsToRegex() {
         $correlations=array();
         $content_models = array_keys($this->objectInfo->getContentModels());
         foreach ($content_models as $content_model) {
             switch ($content_model) {
                 case "ir:thesisCModel": {
-                    $correlations[] = array('PDF' => '^text\.pdf\.\d+.+$');
+                    // For example, (?<!foo)bar does find an occurrence of "bar" that is not preceded by "foo".
+                    // We want any file that ends with .pdf but does not begin with between 1 and 3 digits followed
+                    // by a dash, based on premise that there will not be more than 1000 supplemental files
+                    $correlations[] = array('PDF' => '^(?<![0-9]{1,3}\-).*\.pdf+$');
                 }
                 case "ir:citationCModel": {
 
@@ -1327,6 +1412,15 @@ EOXML;
         return $supplFileInfoMatch;
     }
 
+    public function logDigitalCommonsBatch($message) {
+        $resource = fopen ( $this->batchProcessLogFile, "a+" );
+        if ($resource) {
+            fwrite($resource, $message);
+            fclose($resource);
+        } else {
+            \watchdog($message, WATCHDOG_INFO);
+        }
+    }
 
     /**
      * @return null
