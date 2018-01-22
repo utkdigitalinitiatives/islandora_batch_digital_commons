@@ -31,7 +31,7 @@ This module requires the following modules/libraries:
 * [Islandora Batch](https://github.com/islandora/islandora_batch)
 * [Islandora](https://github.com/islandora/islandora)
 * [Tuque](https://github.com/islandora/tuque)
-
+* [AWS S3 PHP SDK](https://github.com/aws/aws-sdk-php)
 
 Additionally, installing and enabling [Views](https://drupal.org/project/views)
 will allow additional reporting and management displays to be rendered.
