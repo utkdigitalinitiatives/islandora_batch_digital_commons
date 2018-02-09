@@ -9,47 +9,28 @@ s<?php
  * Date: 1/22/18
  * Time: 2:19 PM
  */
-class IslandoraScanBatchFactory
+final class IslandoraScanBatchFactory
 {
     /**
-     * Constructor for the IslandoraScanBatchObject.
-     */
-
-    public function __construct()
-    {
-
-        module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchBase');
-        module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchAWS');
-        module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchDIR');
-        module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchZIP');
-        module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsFileInfo');
-        module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsObjectInfo');
-    }
-
-
-    /**
-     * @param $connection
-     * @param $object_model_cache
-     * @param $parameters
-     * @return FormatterInterface
-     * @internal param string $type
+     * @param string $type
      *
+     * @return FormatterInterface
      */
-    public function getIslandoraScanBatchInstance($connection,  $object_model_cache, $parameters)
+    public static function getIslandoraScanBatchInstance($type)
     {
-        switch($parameters['type'])
+        switch($type)
         {
             case (ISLANDORA_SCAN_BATCH_ZIP) :
                 {
-                return new IslandoraScanBatch($connection,  $object_model_cache, $parameters);
+                return new IslandoraScanBatch();
                 }
             case (ISLANDORA_SCAN_BATCH_DIR) :
                 {
-                return new IslandoraScanBatch($connection,  $object_model_cache, $parameters);
+                return new IslandoraScanBatch();
                 }
             case (ISLANDORA_SCAN_BATCH_AWS) :
                 {
-                return new IslandoraScanBatchAWS($connection,  $object_model_cache, $parameters);
+                return new IslandoraScanBatchAWS();
                 }
             default :
             {

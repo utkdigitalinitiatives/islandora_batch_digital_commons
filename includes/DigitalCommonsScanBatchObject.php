@@ -1,13 +1,13 @@
 <?php
 
 /**
- * DigitalCommonsScanBatchObject
+ * IslandoraScanBatchObjectDigitalCommons
  *
  * User: rwaltz
  * Date: 1/22/18
  * Time: 3:02 PM
  */
-class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
+class IslandoraScanBatchObjectDigitalCommons extends IslandoraScanBatchObject
 {
 
     private $CORRESPONDENCE_DSID = "MESSAGES";

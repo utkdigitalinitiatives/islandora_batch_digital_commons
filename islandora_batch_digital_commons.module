@@ -9,11 +9,6 @@ define('ISLANDORA_BATCH_DIGITAL_COMMONS_ENCLOSURE','"');
 define('ISLANDORA_BATCH_DIGITAL_COMMONS_ESCAPE','"');
 define('DIGITAL_COMMONS_MAX_SUBDIRECTORY_DEPTH_FOR_COLLECTIONS', '10');
 
-define('ISLANDORA_SCAN_BATCH_ZIP','IslandoraScanBatchZIP');
-define('ISLANDORA_SCAN_BATCH_DIR','IslandoraScanBatchDIR');
-define('ISLANDORA_SCAN_BATCH_AWS','IslandoraScanBatchAWS');
-
-libraries_load('awssdk');
 /**
  * Function to handle preprocessing.
  */
