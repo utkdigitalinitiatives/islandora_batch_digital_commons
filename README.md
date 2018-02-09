@@ -31,7 +31,7 @@ This module requires the following modules/libraries:
 * [Islandora Batch](https://github.com/islandora/islandora_batch)
 * [Islandora](https://github.com/islandora/islandora)
 * [Tuque](https://github.com/islandora/tuque)
-* [AWS S3 PHP SDK](https://github.com/aws/aws-sdk-php)
+
 
 Additionally, installing and enabling [Views](https://drupal.org/project/views)
 will allow additional reporting and management displays to be rendered.
@@ -41,29 +41,9 @@ will allow additional reporting and management displays to be rendered.
 
 Install as usual, see [this](https://drupal.org/documentation/install/modules-themes/modules-7) for further information.
 
-All pre-required modules must be properly installed before installing islandora_batch_digital_commons
-
 ## Configuration
 
-## Getting Started With AWS S3 PHP Client
-
-1. **Sign up for AWS** – Before you begin, you need to
-   sign up for an AWS account and retrieve your [AWS credentials][docs-signup].
-2. **Minimum requirements** – To run the SDK, your system will need to meet the
-   [minimum requirements][docs-requirements], including having **PHP >= 5.5**
-   compiled with the cURL extension and cURL 7.16.2+ compiled with a TLS
-   backend (e.g., NSS or OpenSSL).
-3. **Install the SDK** – Using [Composer] is the recommended way to install the
-   AWS SDK for PHP. The SDK is available via [Packagist] under the
-   [`aws/aws-sdk-php`][install-packagist] package. Please see the
-   [Installation section of the User Guide][docs-installation] for more
-   detailed information about installing the SDK through Composer and other
-   means.
-4. **Using the SDK** – The best way to become familiar with how to use the SDK
-   is to read the [User Guide][docs-guide]. The
-   [Getting Started Guide][docs-quickstart] will help you become familiar with
-   the basic concepts.
-
+N/A
 
 ## Documentation
 
