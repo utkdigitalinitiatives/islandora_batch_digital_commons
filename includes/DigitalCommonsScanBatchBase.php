@@ -47,8 +47,7 @@ class IslandoraScanBatchDigitalCommonsBase extends IslandoraScanBatch
      */
     protected function scan()
     {
-        $method = "scan" . ucfirst($this->getTargetType());
-        return $this->$method($this->getTarget() . "/" . $this->getDigitalCommonsSeriesName());
+        throw Exception("scan must be overwritten in descendant");
     }
 
     /**
@@ -116,30 +115,6 @@ class IslandoraScanBatchDigitalCommonsBase extends IslandoraScanBatch
         return '/.*/';
     }
 
-    /**
-     * Scan the directory with file_scan_directory().
-     */
-    protected function scanDirectory($target)
-    {
-
-        $fileStorage = new SplObjectStorage();
-        $target_path = drupal_realpath($target);
-        $directory_contents = file_scan_directory(
-            $target_path, $this->getPattern(), array('recurse' => $this->recursiveScan)
-        );
-        foreach ($directory_contents as $uri => $value) {
-            $fileStorage->attach($value);
-        }
-        return $fileStorage;
-    }
-
-    /**
-     * Generate output analogous to file_scan_directory().
-     */
-    protected function scanZip($target)
-    {
-        throw Exception("scanZip Does no work with islandora_scan_batch_digital_commons");
-    }
 
     /**
      * Group file entries logically, to pass off to the import object.
