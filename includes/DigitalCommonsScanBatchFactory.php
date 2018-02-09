@@ -9,28 +9,47 @@ s<?php
  * Date: 1/22/18
  * Time: 2:19 PM
  */
-final class IslandoraScanBatchFactory
+class IslandoraScanBatchFactory
 {
     /**
-     * @param string $type
-     *
-     * @return FormatterInterface
+     * Constructor for the IslandoraScanBatchObject.
      */
-    public static function getIslandoraScanBatchInstance($type)
+
+    public function __construct()
     {
-        switch($type)
+
+        module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchBase');
+        module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchAWS');
+        module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchDIR');
+        module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchZIP');
+        module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsFileInfo');
+        module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsObjectInfo');
+    }
+
+
+    /**
+     * @param $connection
+     * @param $object_model_cache
+     * @param $parameters
+     * @return FormatterInterface
+     * @internal param string $type
+     *
+     */
+    public function getIslandoraScanBatchInstance($connection,  $object_model_cache, $parameters)
+    {
+        switch($parameters['type'])
         {
             case (ISLANDORA_SCAN_BATCH_ZIP) :
                 {
-                return new IslandoraScanBatch();
+                return new IslandoraScanBatch($connection,  $object_model_cache, $parameters);
                 }
             case (ISLANDORA_SCAN_BATCH_DIR) :
                 {
-                return new IslandoraScanBatch();
+                return new IslandoraScanBatch($connection,  $object_model_cache, $parameters);
                 }
             case (ISLANDORA_SCAN_BATCH_AWS) :
                 {
-                return new IslandoraScanBatchAWS();
+                return new IslandoraScanBatchAWS($connection,  $object_model_cache, $parameters);
                 }
             default :
             {
