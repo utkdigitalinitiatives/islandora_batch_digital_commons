@@ -1,4 +1,4 @@
-s<?php
+<?php
 
 /**
  * IslandoraScanBatch is a class used by islandora_batch. It follows a static factory pattern.
@@ -9,7 +9,12 @@ s<?php
  * Date: 1/22/18
  * Time: 2:19 PM
  */
-class IslandoraScanBatchFactory
+
+define('DIGITAL_COMMONS_SCAN_BATCH_ZIP','ZIP');
+define('DIGITAL_COMMONS_SCAN_BATCH_DIR','DIR');
+define('DIGITAL_COMMONS_SCAN_BATCH_AWS','AWS');
+
+class DigitalCommonsScanBatchFactory
 {
     /**
      * Constructor for the IslandoraScanBatchObject.
@@ -20,8 +25,8 @@ class IslandoraScanBatchFactory
 
         module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchBase');
         module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchAWS');
-        module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchDIR');
-        module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchZIP');
+#        module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchDIR');
+#        module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchZIP');
         module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsFileInfo');
         module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsObjectInfo');
     }
@@ -39,21 +44,23 @@ class IslandoraScanBatchFactory
     {
         switch($parameters['type'])
         {
-            case (ISLANDORA_SCAN_BATCH_ZIP) :
+            case (DIGITAL_COMMONS_SCAN_BATCH_ZIP) :
                 {
-                return new IslandoraScanBatch($connection,  $object_model_cache, $parameters);
+                return null;
+                break;
                 }
-            case (ISLANDORA_SCAN_BATCH_DIR) :
+            case (DIGITAL_COMMONS_SCAN_BATCH_DIR) :
                 {
-                return new IslandoraScanBatch($connection,  $object_model_cache, $parameters);
+                return null;
+                break;
                 }
-            case (ISLANDORA_SCAN_BATCH_AWS) :
+            case (DIGITAL_COMMONS_SCAN_BATCH_AWS) :
                 {
-                return new IslandoraScanBatchAWS($connection,  $object_model_cache, $parameters);
+                return new DigitalCommonsScanBatchAWS($connection,  $object_model_cache, $parameters);
                 }
             default :
             {
-                throw new \InvalidArgumentException("Unable to instantiate a Scan Batch object of type " . $type);
+                throw new \InvalidArgumentException("Unable to instantiate a Scan Batch object of type " . $parameters['type']);
             }
         }
     }

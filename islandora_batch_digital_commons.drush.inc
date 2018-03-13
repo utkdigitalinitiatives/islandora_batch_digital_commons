@@ -41,7 +41,7 @@ function islandora_batch_digital_commons_drush_command() {
     'ZIP archive.',
     'drupal dependencies' => array('islandora_batch_digital_commons', 'islandora_batch'),
     'examples' => array(
-      format_string('drush -v --user=admin --uri=http://digital.library.yorku.ca islandora_batch_digital_commons_scan_preprocess --content_models=islandora:sp_large_image_cmodel --parent=yul:F0433 --parent_relationship_pred=isMemberOfCollection --type=directory --@target=/tmp/batch_ingest',
+      format_string('drush -v --user=admin --uri=http://digital.library.yorku.ca islandora_batch_digital_commons_scan_preprocess  --type=directory --@target=/tmp/batch_ingest',
       array(
         '@target' => DRUSH_VERSION >= 7 ? 'scan_target' : 'target',
       )),
@@ -49,45 +49,36 @@ function islandora_batch_digital_commons_drush_command() {
     'options' => array(
       'input' => array(
         'description' => 'The absolute path to the delimiter-separated file. ' ,
-        'required' => 'TRUE',
+        'required' => TRUE,
+          'value' => 'required',
       ),
       'target' => array(
         'description' => 'The target to directory to scan ' .
         'models which are all applied to each ingested object.',
-        'required' => 'TRUE',
+        'required' => FALSE,
+          'value' => 'optional',
       ),
       'type' => array(
-        'description' => 'Either "directory" or "zip". The zip importer is' .
+        'description' => 'Either "ZIP", "DIR", "AWS". The zip importer is' .
         " unstable with large files (~2GB). Consider alternative methods" .
         " such as unzipping your Zip file and using Islandora Batch's" .
         "`--directory` option.",
         'required' => TRUE,
+          'value' => 'required',
       ),
-//      'content_models' => array(
-//        'description' => 'Supports one or multiple comma-separated content ' .
-//        'models which are all applied to each ingested object.',
-//        'value' => 'optional',
-//      ),
-//      'parent' => array(
-//        'description' => 'The collection to which the generated items should ' .
-//        'be added. Defaults to the root Islandora repository PID.',
-//        'value' => 'optional',
-//      ),
-//      'parent_relationship_uri' => array(
-//        'description' => 'The namespace URI of the relationship to the parent.' .
-//        ' Defaults to "info:fedora/fedora-system:def/relations-external#".',
-//        'value' => 'optional',
-//      ),
-//      'parent_relationship_pred' => array(
-//        'description' => 'The predicate of the relationship to the parent. ' .
-//        'Defaults to "isMemberOfCollection".',
-//        'value' => 'optional',
-//      ),
-//      'namespace' => array(
-//        'description' => 'Namespace of objects to create. ' .
-//        'Defaults to namespace specified in Fedora configuration.',
-//        'value' => 'optional',
-//      ),
+        'transform_uri' => array(
+            'description' => 'Either "https" or "file" should be understood. If https ' .
+                " then the module will attempt to download and extract a zip file that contains all transforms" .
+                " needed by your migration. Otherwise point to a directory that contains them all." ,
+            'required' => TRUE,
+            'value' => 'required',
+        ),
+        'java' => array(
+            'description' => 'The full path to the Java installation that should be used to run BaseX. ' .
+                ' BaseX needs to be installed and configured properly too.',
+            'required' => FALSE,
+            'value' => 'optional'
+        ),
       'zip_encoding' => array(
         'description' => 'The encoding of filenames contained in ZIP ' .
         'archives:Only relevant with --scan_target=zip. Defaults to the native ' .
@@ -137,16 +128,20 @@ function drush_islandora_batch_digital_commons_scan_preprocess() {
   module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchFactory');
   drupal_static_reset('islandora_get_tuque_connection');
   $connection = islandora_get_tuque_connection();
-  
+  $java_option = drush_get_option('java');
+  if (isset($java_option)) {
+      variable_set('islandora_batch_java', $java_option);
+  }
   $parameters = array(
     'type' => drush_get_option('type'),
     'input' => drush_get_option('input'),
     'target' => drush_get_option('target'),
     'zip_encoding' => drush_get_option('zip_encoding'),
+      'transform_uri' => drush_get_option('transform_uri')
   );
     $scan_factory = new DigitalCommonsScanBatchFactory();
     $cache = new IslandoraBatchFedoraObjectModelCache ($connection);
-    $collections_data = retrieveDataFromDsvFile($parameters['input']);
+    $collections_data = islandora_batch_digital_commons_retrieveDataFromDsvFile($parameters['input']);
     foreach ($collections_data as $collection) {
         $parameters['digital_commons_series_name'] = $collection->digitalCommonsSeries;
         $parameters['collection_namespace'] = $collection->namespace;

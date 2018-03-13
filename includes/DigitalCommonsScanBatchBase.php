@@ -5,7 +5,7 @@
  * Date: 1/23/18
  * Time: 1:36 PM
  */
-class IslandoraScanBatchDigitalCommonsBase extends IslandoraScanBatch
+class DigitalCommonsScanBatchBase extends IslandoraScanBatch
 {
 
     // Change to FALSE if one wants to take control over hierarchical structures.
@@ -277,7 +277,7 @@ class IslandoraScanBatchDigitalCommonsBase extends IslandoraScanBatch
             while ($digitalCommonsSeriesName !== $this->getDigitalCommonsSeriesName()) {
                 $file_object->setDigitalCommonsObjectId($digitalCommonsSeriesName . "." . $file_object->getDigitalCommonsObjectId());
                 // do not want to have an infinite loop attempting to build a unique object id
-                if ($i >= DIGITAL_COMMONS_MAX_SUBDIRECTORY_DEPTH_FOR_COLLECTIONS || $digitalCommonsSeriesDirectory === "/") {
+                if ($i >= DIGITAL_COMMONS_MAX_SUBDIRECTORY_DEPTH_FOR_COLLECTIONS || $digitalCommonsSeriesDirectory === DIRECTORY_SEPARATOR) {
                     throw new Exception("target collection directory " . $this->getTarget() . " invalid for Digital Commons Dump");
                 }
                 $digitalCommonsSeriesDirectory = pathinfo($digitalCommonsSeriesDirectory, PATHINFO_DIRNAME);
@@ -296,13 +296,7 @@ class IslandoraScanBatchDigitalCommonsBase extends IslandoraScanBatch
         $file_object->setExt(pathinfo($file->filename, PATHINFO_EXTENSION));
         return $file_object;
     }
-    /**
-     * Get the name of the class to instantiate for the batch operations.
-     */
-    protected static function getObjectClass()
-    {
-        return "IslandoraScanBatchObjectDigitalCommons";
-    }
+
 
     /**
      * Perform preprocessing of the scanned resources.

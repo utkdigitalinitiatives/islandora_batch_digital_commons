@@ -1,6 +1,6 @@
 <?php
 //require '//home/rwaltz/Share/aws/aws-autoloader.php';
-require '/home/vagrant/Share/aws/aws-autoloader.php';
+//require '/home/vagrant/Share/aws/aws-autoloader.php';
 
 use Aws\Credentials\CredentialProvider;
 use Aws\S3\S3Client;
@@ -164,14 +164,14 @@ $s3Client = new Aws\S3\S3Client([
 
 $harvest_array_list = scan_aws_s3();
 
-$TMP_DIR_HARVEST= sys_get_temp_dir() . "/" . getAWSBucketName() . "/" . getDigitalCommonsSeriesName();
+$TMP_DIR_HARVEST= sys_get_temp_dir() . DIRECTORY_SEPARATOR . getAWSBucketName() . DIRECTORY_SEPARATOR . getDigitalCommonsSeriesName();
 
 if (! file_exists($TMP_DIR_HARVEST)) {
 	if (! mkdir($TMP_DIR_HARVEST, 0775, true)) {
 			throw new ErrorException("Unable to create ${TMP_DIR_HARVEST}");
 	}
 }
-$TMP_DIR_FAIL= sys_get_temp_dir() . "/fail/" . getAWSBucketName() . "/" . getDigitalCommonsSeriesName();
+$TMP_DIR_FAIL= sys_get_temp_dir() . "/fail/" . getAWSBucketName() . DIRECTORY_SEPARATOR . getDigitalCommonsSeriesName();
 if (! file_exists($TMP_DIR_FAIL)) {
 	if (! mkdir ($TMP_DIR_FAIL, 0775,  true)) {
 		throw new ErrorException("Unable to create ${$TMP_DIR_FAIL}");
@@ -179,7 +179,7 @@ if (! file_exists($TMP_DIR_FAIL)) {
 }
 
 
-$master_catalog_doc= sys_get_temp_dir() . "/" . getAWSBucketName() . "/basex_catalog.xml";
+$master_catalog_doc= sys_get_temp_dir() . DIRECTORY_SEPARATOR . getAWSBucketName() . "/basex_catalog.xml";
 if ( file_exists($master_catalog_doc) ) {
 	unlink($master_catalog_doc);
 }
@@ -207,7 +207,7 @@ foreach ($harvest_array_list as $line) {
 			if (in_array($objectid, $failed_objectid)) {
 				continue;
 			}
-			$full_object_path = $TMP_DIR_HARVEST . "/" . $objectid;
+			$full_object_path = $TMP_DIR_HARVEST . DIRECTORY_SEPARATOR . $objectid;
 	
 			if (! file_exists($full_object_path)) {
 				pathinfo($full_object_path, PATHINFO_DIRNAME);
@@ -217,7 +217,7 @@ foreach ($harvest_array_list as $line) {
 			}
 				
 	
-			$tmp_file = $full_object_path . "/" . $file_name;
+			$tmp_file = $full_object_path . DIRECTORY_SEPARATOR . $file_name;
 			$tmp_file = html_entity_decode ($tmp_file);
 			try {
 				$result = $s3Client->getObject(array(
