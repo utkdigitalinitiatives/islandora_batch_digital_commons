@@ -1,2 +1,2 @@
 #aws_bucket_name, aws_filter_path, digital_commons_series_name, collection_namespace, collection_name, basex_bepress_mods_transform
-"bepress-small-test", "archive/trace.tennessee.edu", "utk_graddiss", "utk.ir", "td", "bepress-to-mods.xq"
+"bepress-small-test", "archive/trace.tennessee.edu", "utk_graddiss", "utk.ir", "td", "bepress-to-etd-mods.xq"

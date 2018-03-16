@@ -155,7 +155,7 @@ class DigitalCommonsTransformBaseX
         $bepress_mods_transform = $this->getDigitalCommonsToModsTransform();
         $tmp_log_dir = sys_get_temp_dir() . DIRECTORY_SEPARATOR;
         # Run code
-        $executable =  getJavaExec() . " -cp {$classpath} {$basex_jvm} org.basex.BaseX -bsource_filepath=\"{$master_catalog_doc}\" -o {$tmp_log_dir}/bepress_to_mods_basex.out {$bepress_mods_transform}";
+        $executable =  $this->getJavaExec() . " -cp {$classpath} {$basex_jvm} org.basex.BaseX -bsource_filepath=\"{$master_catalog_doc}\" -o {$tmp_log_dir}/bepress_to_mods_basex.out {$bepress_mods_transform}";
 
         $results = null;
         $return = null;

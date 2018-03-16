@@ -205,7 +205,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         foreach ($downloaded_file_list as $value) {
             $file = new stdClass();
             $file->uri = $value;
-            $file->filename = $value;
+            $file->filename = pathinfo($value, PATHINFO_BASENAME);
             $file->name = pathinfo($value, PATHINFO_FILENAME);
             $fileStorage->attach($file);
         }
@@ -283,7 +283,8 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         $metadataXMLWriter = $this->retrieveAwsMetadataFiles($harvest_array_list);
 
 
-        return $this->writeHarvestList($metadataXMLWriter);
+        $this->writeHarvestList($metadataXMLWriter);
+        return $this->getFlatDownloadedObjectList();
 
     }
 
@@ -315,7 +316,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
             unlink($master_catalog_fullpath);
         }
         file_put_contents($master_catalog_fullpath,$xmlHarvestDOM->saveXML());
-        return $this->getFlatDownloadedObjectList();
+
     }
 
     public function retrieveAwsMetadataFiles($harvest_array_list) {
@@ -345,7 +346,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                     $full_object_path = $TMP_DIR_HARVEST . DIRECTORY_SEPARATOR . $object_id;
 
                     if (! file_exists($full_object_path)) {
-                        $this->verifyCreateDirectory(pathinfo($full_object_path, PATHINFO_DIRNAME));
+                        $this->verifyCreateDirectory($full_object_path);
                     }
 
                     $tmp_file = $full_object_path . DIRECTORY_SEPARATOR . $file_name;
@@ -516,14 +517,14 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         return$this->downloaded_object_list = array();
     }
     public function isInDownloadedObjectList($pid) {
-        return in_array($pid, $this->downloaded_object_list);
+        return array_key_exists($pid, $this->downloaded_object_list);
     }
     public function removeFromDownloadedObjectList($pid) {
         unset($this->downloaded_object_list[$pid]);
     }
     public function addDownloadedObjectList($pid, $filepath) {
         if ($this->isInDownloadedObjectList($pid)) {
-            $this->downloaded_object_list[$pid] = $filepath;
+            $this->downloaded_object_list[$pid][] = $filepath;
         } else {
             $this->downloaded_object_list[$pid] = array($filepath);
         }

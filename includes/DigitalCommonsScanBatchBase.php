@@ -294,7 +294,7 @@ class DigitalCommonsScanBatchBase extends IslandoraScanBatch
         $file_object->setUri($file->uri);
         $file_object->setFilename($file->filename);
         $file_object->setName($file->name);
-        $file_object->setExt(pathinfo($file->filename, PATHINFO_EXTENSION));
+        $file_object->setExt(pathinfo($file->uri, PATHINFO_EXTENSION));
         return $file_object;
     }
 
