@@ -8,6 +8,7 @@
 //This XML module is not provided on a default php (v7) install on Debian GNU/Linux
 // sudo apt-get install php-xml
 
+// This module is based on version 2 of the AWS SDK
 
 // As drupal administrator, go to the modules in the administrative toolbar
 // click on the install new module button
@@ -30,6 +31,7 @@
 //
 
 // Include the SDK using the Composer autoloader
+require '/usr/local/share/php5/php-aws/aws-autoloader.php';
 
 use Aws\Credentials\CredentialProvider;
 use Aws\S3\S3Client;
@@ -89,7 +91,14 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
             'region'  => 'us-east-1',
             'credentials' => $provider
         ]);
-        $this->digitalCommonsTransformBaseX = new DigitalCommonsTransformBaseX($parameters['basex_bepress_mods_transform'], $parameters['$transform_uri']);
+        if (! isset($parameters['basex_bepress_mods_transform_name'])) {
+            throw new Exception("basex_bepress_mods_transform_name is not set in dsv file");
+        }
+        if (isset($parameters['$transform_uri'])) {
+            $this->setDigitalCommonsTransformBaseX(new DigitalCommonsTransformBaseX($parameters['basex_bepress_mods_transform_name'], $parameters['$transform_uri']));
+        } else {
+            $this->setDigitalCommonsTransformBaseX( new DigitalCommonsTransformBaseX($parameters['basex_bepress_mods_transform_name']));
+        }
     }
     /**
      * Get the name of the class to instantiate for the batch operations.
@@ -186,7 +195,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         rmdir($src);
     }
 
-    private function harvestAWS($target)
+    private function harvestAWS()
     {
         $fileStorage = new SplObjectStorage();
         $directory_contents = $this->scan_aws_s3();
@@ -207,7 +216,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
     {
 
         $s3Client = $this->getS3Client();
-        $persist_listobjects_filepath = tempnam($this->getTmpScanDirectory(), "A" . getSetId());
+        $persist_listobjects_filepath = tempnam($this->getTmpScanDirectory(), "A" . $this->getSetId());
         $serialize_object_marker = "---XXX---";
         $errors = array();
         $harvest_list = array();
@@ -227,7 +236,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                 if (isset($aws_params)) {
                     $aws_params['Marker'] = $marker;
                 } else {
-                    $aws_params = array('Bucket' => getAWSBucketName(),
+                    $aws_params = array('Bucket' => $this->getAWSBucketName(),
                         'Delimiter' => $delimiter,
                         'MaxKeys' => $max_page_count,
                         'Prefix'  =>  $prefix);
@@ -253,19 +262,21 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         $exploded_data_list = explode($serialize_object_marker, $file_contents);
         foreach ($exploded_data_list as $data)
         {
-            $unserialized_harvest = unserialize($data);
-            $harvest_list[] = $unserialized_harvest;
+            if (isset($data)) {
+                $unserialized_harvest = unserialize($data);
+                $harvest_list[] = $unserialized_harvest;
+            }
         }
         unlink($persist_listobjects_filepath);
         return $harvest_list;
     }
 
     function create_basex_catalog($harvest_array_list) {
-        $TMP_DIR_HARVEST= $this->getTmpScanDirectory() . DIRECTORY_SEPARATOR . $this->getAWSBucketName() . DIRECTORY_SEPARATOR . $this->getDigitalCommonsSeriesName();
+        $TMP_DIR_HARVEST= $this->getTmpScanDirectory()  . DIRECTORY_SEPARATOR . $this->getDigitalCommonsSeriesName();
         $this->verifyCreateDirectory($TMP_DIR_HARVEST);
         $this->setTmpHarvestDirectory($TMP_DIR_HARVEST);
 
-        $TMP_DIR_FAIL= sys_get_temp_dir() . "/fail/" . $this->getAWSBucketName() . DIRECTORY_SEPARATOR . $this->getDigitalCommonsSeriesName();
+        $TMP_DIR_FAIL= sys_get_temp_dir()  . DIRECTORY_SEPARATOR . "fail"  . DIRECTORY_SEPARATOR . $this->getAWSBucketName() . DIRECTORY_SEPARATOR . $this->getDigitalCommonsSeriesName();
         $this->verifyCreateDirectory($TMP_DIR_FAIL);
         $this->setTmpFailedDirectory($TMP_DIR_FAIL);
 
@@ -341,7 +352,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                     $tmp_file = html_entity_decode ($tmp_file);
                     try {
                         $result = $s3Client->getObject(array(
-                            'Bucket' => getAWSBucketName(),
+                            'Bucket' => $this->getAWSBucketName(),
                             'Key'    => $key,
                             'SaveAs' => $tmp_file
                         ));
@@ -368,9 +379,10 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
 
                     }
                 }
-            } else {
-                logmsg("Error: Failure: Line is empty or null or something " . print_r($line, true));
             }
+            // else {
+            //    logmsg("Error: Failure: Line is empty or null or something " . print_r($line, true));
+            //}
         }
         $metadata_xml_writer->endElement(); //close catalog
         $metadata_xml_writer->endDocument(); //close document
@@ -429,9 +441,10 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
     public function getTmpScanDirectory()
     {
         if (isset($this->parameters['tmp_scan_directory']) ) {
-            return sys_get_temp_dir(). DIRECTORY_SEPARATOR . getAWSBucketName();
-        } else {
             return $this->parameters['tmp_scan_directory'];
+
+        } else {
+            return sys_get_temp_dir(). DIRECTORY_SEPARATOR . $this->getAWSBucketName();
         }
     }
 
@@ -451,7 +464,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
     public function getTmpHarvestDirectory()
     {
         if (isset($this->parameters['tmp_harvest_directory']) ) {
-            return $this->getTmpScanDirectory() . DIRECTORY_SEPARATOR . getDigitalCommonsSeriesName();
+            return $this->getTmpScanDirectory() . DIRECTORY_SEPARATOR . $this->getDigitalCommonsSeriesName();
         } else {
             return $this->parameters['tmp_harvest_directory'];
         }
@@ -473,9 +486,10 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
     public function getTmpFailedDirectory()
     {
         if (isset($this->parameters['tmp_failed_directory']) ) {
-            return $this->getTmpScanDirectory() . DIRECTORY_SEPARATOR . "/Fail";
-        } else {
             return $this->parameters['tmp_failed_directory'];
+
+        } else {
+            return $this->getTmpScanDirectory() . DIRECTORY_SEPARATOR . "/Fail";
         }
     }
 

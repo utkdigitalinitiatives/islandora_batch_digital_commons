@@ -37,7 +37,72 @@ This module requires the following system components to be installed and functio
 
 ### Instructions for Installation of Java and BaseX on Ubuntu (debian) and Redhat (rpm) systems.
 
+AWS client needs to be installed
 
+Each release of the AWS SDK for PHP ships with a zip file containing all of the classes and dependencies you need to run the SDK. Additionally, the zip file includes a class autoloader for the AWS SDK for PHP and all of its dependencies.
+
+To get started, you must download the zip file, http://docs.aws.amazon.com/aws-sdk-php/v3/download/aws.zip unzip it into your project to a location of your choosing,  and include the autoloader: require '/path/to/aws-autoloader.php';
+
+<pre>
+sudo mkdir -p /usr/local/share/php5/php-aws
+
+sudo curl -L "http://docs.aws.amazon.com/aws-sdk-php/v3/download/aws.zip" > /tmp/aws.zip
+
+sudo unzip /tmp/aws.zip -d /usr/local/share/php5/php-aws
+
+sudo rm /tmp/aws.zip
+</pre>
+
+Please note the require at the top of this file. please correct this location to accurately ..
+
+Install baseX to
+
+<pre>
+
+curl -L "http://files.basex.org/releases/8.6.7/BaseX867.zip" >> /tmp/BaseX867.zip
+
+unzip /tmp/BaseX867.zip -d /usr/local/lib/
+
+rm /tmp/BaseX867.zip
+
+</pre>
+
+If you have php7 on ubuntu you are so so very lucky!
+
+<pre>
+sudo apt-get install php7.0-zip
+</pre>
+
+otherwise, install the the php development package in order to get pear and pecl support
+ 
+ <pre>
+ sudo apt-get  install php5-dev
+ sudo apt-get install libzip2
+ pear config-set php_ini /etc/php5/apache2/php.ini
+ pecl config-set php_ini /etc/php5/apache2/php.ini
+ sudo apt-get install zip (does not install on ubuntu 14.04 (Trusty)
+ sudo pecl install zip-1.13.5 (install on ubuntu 14.04 (Trusty)
+ </pre>
+
+ results should look like
+ 
+ <pre>
+ Build process completed successfully
+ Installing '/usr/lib/php5/20121212/zip.so'
+ install ok: channel://pecl.php.net/zip-1.13.5
+ Extension zip enabled in php.ini
+ </pre>
+if you see something similar to the following
+<pre>
+Build process completed successfully
+Installing '/usr/lib/php5/20121212/zip.so'
+Install ok: channel://pecl.php.net/zip-1.13.5 configuration option "php_ini" is not set to php.ini location
+</pre>
+ You should add "extension=zip.so" to php.ini then add to 
+  /etc/php5/apache2/php.ini
+  or(but not both) 
+ /etc/php5/cli/php.ini 
+ <pre>extension=/usr/lib/php5/20121212/zip.so  </pre>
 
 ## And More Requirements!
 
@@ -116,7 +181,7 @@ Further documentation for this module is available at
 The base ZIP/directory preprocessor can be called as a drush script (see `drush help islandora_batch_scan_preprocess` 
 for additional parameters):
 
-`drush ibdcsp --input=/path/to/dsvfile  --type=directory --target=/path/to/archive `
+`drush ibdcsp --input=/path/to/dsvfile  --type=AWS `
 
 
 

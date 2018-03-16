@@ -6,8 +6,6 @@
  */
 
 
-libraries_load('awssdk');
-
 define('ISLANDORA_BATCH_DIGITAL_COMMONS_DELIMITER',',');
 define('ISLANDORA_BATCH_DIGITAL_COMMONS_ENCLOSURE','"');
 define('ISLANDORA_BATCH_DIGITAL_COMMONS_ESCAPE','"');
@@ -20,7 +18,7 @@ define('BASEX_BEPRESS_MODS_TRANSFORM_NAME', 'bepress-to-mods.xq');
  * Function to handle preprocessing.
  */
 function islandora_batch_digital_commons_handle_preprocessor($preprocessor) {
-    $digitalCommonsTransformBaseX  = new DigitalCommonsTransformBaseX();
+    $digitalCommonsTransformBaseX  = $preprocessor->getDigitalCommonsTransformBaseX();
     $digitalCommonsTransformBaseX->installDigitalCommonsTransformationProject();
 
   return $preprocessor->preprocess();

@@ -134,8 +134,9 @@ class DigitalCommonsScanBatchBase extends IslandoraScanBatch
      *   An array, as returned by file_scan_directory().
      *
      */
-    function groupFiles(SplObjectStorage $fileStorage)
+    function groupFiles($fileStorage)
     {
+
         $grouped = array();
         $digitalCommonsMetadataFileObject = null;
         $digitalCommonsMetadataObjectInfo = null;
@@ -391,7 +392,7 @@ class DigitalCommonsScanBatchBase extends IslandoraScanBatch
     /**
      * Recursively attempt to preprocess children.
      */
-    protected function preprocessChildren($object, $parent = NULL) {
+    protected function preprocessChildren(IslandoraBatchObject $object, $parent = NULL) {
         $to_return = array();
 
         // XXX: Squash exceptions and log 'em.

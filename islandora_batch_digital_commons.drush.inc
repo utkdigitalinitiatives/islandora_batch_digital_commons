@@ -41,7 +41,7 @@ function islandora_batch_digital_commons_drush_command() {
     'ZIP archive.',
     'drupal dependencies' => array('islandora_batch_digital_commons', 'islandora_batch'),
     'examples' => array(
-      format_string('drush -v --user=admin --uri=http://digital.library.yorku.ca islandora_batch_digital_commons_scan_preprocess  --type=directory --@target=/tmp/batch_ingest',
+      format_string('drush -v  ibdcsp --user=admin   --type=AWS --input=/var/www/drupal/sites/all/modules/islandora_batch_digital_commons/config/trace_ingest_bepress.csv',
       array(
         '@target' => DRUSH_VERSION >= 7 ? 'scan_target' : 'target',
       )),
@@ -56,7 +56,7 @@ function islandora_batch_digital_commons_drush_command() {
         'description' => 'The target to directory to scan ' .
         'models which are all applied to each ingested object.',
         'required' => FALSE,
-          'value' => 'optional',
+          'value' => 'required',
       ),
       'type' => array(
         'description' => 'Either "ZIP", "DIR", "AWS". The zip importer is' .
@@ -67,23 +67,30 @@ function islandora_batch_digital_commons_drush_command() {
           'value' => 'required',
       ),
         'transform_uri' => array(
-            'description' => 'Either "https" or "file" should be understood. If https ' .
-                " then the module will attempt to download and extract a zip file that contains all transforms" .
-                " needed by your migration. Otherwise point to a directory that contains them all." ,
-            'required' => TRUE,
+            'description' => 'The URI that holds a zip file containing all the transforms needed by the project. ' .
+                " The module will attempt to download and extract a zip file that contains all transforms" .
+                " needed by your migration. Default is https://github.com/utkdigitalinitiatives/basex-bepress-to-mods/archive/master.zip" ,
+            'required' => FALSE,
             'value' => 'required',
+        ),
+        'tmp_scan_directory' => array(
+            'description' => 'The full path to the tmp directory that all scanned directories should be downloaded to,. ' .
+                ' if using AWS',
+            'required' => FALSE,
+            'value' => 'required'
         ),
         'java' => array(
             'description' => 'The full path to the Java installation that should be used to run BaseX. ' .
                 ' BaseX needs to be installed and configured properly too.',
             'required' => FALSE,
-            'value' => 'optional'
+            'value' => 'required'
         ),
       'zip_encoding' => array(
         'description' => 'The encoding of filenames contained in ZIP ' .
         'archives:Only relevant with --scan_target=zip. Defaults to the native ' .
         'encoding being used by PHP.',
-        'value' => 'optional',
+          'required' => FALSE,
+        'value' => 'required',
       ),
     ),
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
@@ -126,6 +133,18 @@ function drush_islandora_batch_digital_commons_scan_preprocess() {
 
   module_load_include('php','islandora_batch_digital_commons','includes/IslandoraBatchFedoraObjectModelCache');
   module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchFactory');
+    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsFileInfo.php');
+    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchObject.php');
+
+    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsObjectInfo.php');
+    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsTransformBaseX.php');
+
+    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchAWS.php');
+    module_load_include('php','islandora_batch_digital_commons','includes/ingest_digital_commons.batch.inc');
+    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchBase.php');
+    module_load_include('php','islandora_batch_digital_commons','includes/IslandoraBatchFedoraObjectModelCache.php');
+    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchFactory.php');
+    putenv( "HOME=/etc/php5" );
   drupal_static_reset('islandora_get_tuque_connection');
   $connection = islandora_get_tuque_connection();
   $java_option = drush_get_option('java');
@@ -137,7 +156,8 @@ function drush_islandora_batch_digital_commons_scan_preprocess() {
     'input' => drush_get_option('input'),
     'target' => drush_get_option('target'),
     'zip_encoding' => drush_get_option('zip_encoding'),
-      'transform_uri' => drush_get_option('transform_uri')
+    'transform_uri' => drush_get_option('transform_uri'),
+    'tmp_scan_directory' => drush_get_option('tmp_scan_directory'),
   );
     $scan_factory = new DigitalCommonsScanBatchFactory();
     $cache = new IslandoraBatchFedoraObjectModelCache ($connection);
@@ -148,6 +168,11 @@ function drush_islandora_batch_digital_commons_scan_preprocess() {
         $parameters['collection_name'] = $collection->objectId;
         $parameters['collection_pid'] = $collection->pid;
         $parameters['namespace'] = $collection->namespace . "." . $collection->objectId;
+
+        $parameters['aws_bucket_name'] = $collection->aws_bucket_name;
+        $parameters['aws_filter_path'] = $collection->aws_filter_path;
+
+        $parameters['basex_bepress_mods_transform_name'] = $collection->basex_bepress_mods_transform_name;
           try {
             // Could use a drush_multiple_choice() or whatever to get the list of
             // content models, if none were provided?
@@ -158,10 +183,12 @@ function drush_islandora_batch_digital_commons_scan_preprocess() {
             $preprocessed = islandora_batch_digital_commons_handle_preprocessor($preprocessor);
             drush_log(t("SetId: @s", array('@s' => $preprocessor->getSetId())), "ok");
           } catch (Exception $e) {
+              echo "HOME IS SET TO : " . getenv( 'HOME' ) . "\n";
+              echo $e->getMessage();
               drupal_set_message(t('Error Processing Islandora collection objects from (PID %p).',
-                  array('%p' =>  $parameters[collection_pid])), 'error');
+                  array('%p' =>  $parameters['collection_pid'])), 'error');
               watchdog('islandora_batch_digital_commons', 'Error Processing Islandora collection objects from (PID %p).',
-                  array('%p' => $parameters[collection_pid]), WATCHDOG_ERROR);
+                  array('%p' => $parameters['collection_pid']), WATCHDOG_ERROR);
           }
     }
 

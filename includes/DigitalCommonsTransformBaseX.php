@@ -17,6 +17,8 @@ class DigitalCommonsTransformBaseX
 
     protected $basexBepressToModsDir = null;
 
+    protected $basex_dir = "/usr/local/lib/basex";
+
     public function __construct( $basex_bepress_mods_transform_name, $transform_uri = null, $java_fullpath = null) {
         $this->setBasexBepressModsTransformName($basex_bepress_mods_transform_name);
         if (is_null($java_fullpath)) {
@@ -97,21 +99,28 @@ class DigitalCommonsTransformBaseX
         $zip = new ZipArchive();
         $zip_results = $zip->open($basex_bepress_mods_zipfile);
         if ($zip_results === TRUE) {
-            $this->setBasexBepressToModsDir($zip->getNameIndex(0));
+            $toplevel_dir_zip = $zip->getNameIndex(0);
 
+
+            $bepress_mods_transform_dir = dirname(__FILE__);
+            $bepress_mods_transform_dir = dirname($bepress_mods_transform_dir);
+            $bepress_mods_transform_dir  .=  DIRECTORY_SEPARATOR . "scripts" . DIRECTORY_SEPARATOR . $toplevel_dir_zip ;
+            $this->setBasexBepressToModsDir($bepress_mods_transform_dir);
+            if ( file_exists($bepress_mods_transform_dir)) {
+                $this->deleteDirectoryTree($bepress_mods_transform_dir);
+            }
             $zip->extractTo( $module_scripts_directory);
             $zip->close();
+
+            unlink($basex_bepress_mods_zipfile);
+        } else {
+            throw new ErrorException("Failed Opening the zip file downloaded from {$uri}.");
         }
-        unlink($basex_bepress_mods_zipfile);
-        $bepress_mods_transform_dir = dirname(__FILE__);
-        $bepress_mods_transform_dir = dirname($bepress_mods_transform_dir);
-        $bepress_mods_transform_dir  .=  DIRECTORY_SEPARATOR . "scripts";
-        $this->setBasexBepressToModsDir($bepress_mods_transform_dir);
     }
 
     private function getDigitalCommonsToModsTransform() {
 
-        $bepress_mods_transform =  $this->getBasexBepressToModsDir() . $this->getBasexBepressModsTransformName();
+        $bepress_mods_transform =  $this->getBasexBepressToModsDir() . DIRECTORY_SEPARATOR . $this->getBasexBepressModsTransformName();
         if (! file_exists($bepress_mods_transform) ) {
             throw new ErrorException("{$bepress_mods_transform} does not exist");
         }
@@ -126,12 +135,8 @@ class DigitalCommonsTransformBaseX
      */
     public function executeBaseXTransform($master_catalog_doc) {
         # Path to this script
-        $home = getenv('HOME');
-        if ( ! $home ) {
-            throw new ErrorException("HOME environmental variable is not set");
-        }
 
-        $basex_dir="${home}/Share/basex";
+        $basex_dir= $this->getBasexDir();
         # Core and library classes
         if ( ! file_exists("{$basex_dir}/BaseX.jar") )
         {
@@ -157,7 +162,13 @@ class DigitalCommonsTransformBaseX
         exec($executable, $results, $return);
         return $return;
     }
-
+    private function deleteDirectoryTree($dir) {
+        $files = array_diff(scandir($dir), array('.','..'));
+        foreach ($files as $file) {
+            (is_dir("$dir/$file")) ? $this->deleteDirectoryTree("$dir/$file") : unlink("$dir/$file");
+        }
+        return rmdir($dir);
+    }
 
     /**
      * @return string
@@ -221,6 +232,22 @@ class DigitalCommonsTransformBaseX
     public function setTransformUri($transform_uri)
     {
         $this->transform_uri = $transform_uri;
+    }
+
+    /**
+     * @return null
+     */
+    public function getBasexDir()
+    {
+        return $this->basex_dir;
+    }
+
+    /**
+     * @param null $basex_dir
+     */
+    public function setBasexDir($basex_dir)
+    {
+        $this->basex_dir = $basex_dir;
     }
 
 
