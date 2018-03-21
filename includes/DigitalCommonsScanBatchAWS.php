@@ -55,11 +55,11 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
     protected $failed_object_list = array();
     protected $downloaded_object_list = array();
 
-    protected $basex_catalog_name = 'basex_catalog.xml';
+    protected $basex_catalog_name = null;
 
     protected $master_catalog_fullpath = null;
     protected $digitalCommonsTransformBaseX = null;
-    
+    protected $batchProcessLogFileName = "DigitalCommonsScanBatchAWS.log";
 
     /**
      * Constructor must be able to receive an associative array of parameters.
@@ -73,11 +73,13 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
      */
     public function __construct( $connection,  $object_model_cache, $parameters)
     {
+        // pass this off to the ancestors for processing
         parent::__construct($connection,  $object_model_cache, $parameters);
         // $this->root_pid = variable_get('islandora_repository_pid', 'islandora:root');
         $this->repository = $this->connection->repository;
         $this->object_model_cache = $object_model_cache;
         $this->collection_item_namespace = $parameters['namespace'];
+        // Credential provider helps AWS S3 to authenticate
         $provider = CredentialProvider::ini();
 // Cache the results in a memoize function to avoid loading and parsing
 // the ini file on every API operation.
@@ -86,6 +88,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
 // ~/.aws/credentials
         $provider = CredentialProvider::memoize($provider);
 
+        // create a reusable client for this object based on the provider property
         $this->s3Client = new Aws\S3\S3Client([
             'version' => 'latest',
             'region'  => 'us-east-1',
@@ -99,6 +102,32 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         } else {
             $this->setDigitalCommonsTransformBaseX( new DigitalCommonsTransformBaseX($parameters['basex_bepress_mods_transform_name']));
         }
+        if ( isset($parameters['basex_catalog_name'])) {
+            $this->setBasexCatalogName($parameters['basex_catalog_name']);
+        } else {
+            if ( is_null($this->getDigitalCommonsSeriesName()) ) {
+                throw new Exception("Digital Commons Series Name must be set\n");
+            }
+            $base_catalog_name =  str_replace(DIRECTORY_SEPARATOR, "-", $this->getDigitalCommonsSeriesName()) . "-" . $this->generateRandomString(6) . ".xml" ;
+
+            $this->setBasexCatalogName($base_catalog_name);
+        }
+    }
+
+    /**
+     * That's is correct, I have a private function to generate random strings. but I can't claim credit for writing it.
+     * 
+     * function code stolen from
+     * https://stackoverflow.com/questions/4356289/php-random-string-generator
+     */
+    private  function generateRandomString($length = 6) {
+        $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $charactersLength = strlen($characters);
+        $randomString = '';
+        for ($i = 0; $i < $length; $i++) {
+            $randomString .= $characters[rand(0, $charactersLength - 1)];
+        }
+        return $randomString;
     }
     /**
      * Get the name of the class to instantiate for the batch operations.
@@ -124,18 +153,13 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
     }
 
 
+    /**
+     *
+     * determine if the filename submitted as filepath conforms to a pattern recognized as not processable. 
+     * 
+     */
 
-    function logmsg($message, $logFile = "messages.log") {
-
-        $date = date("Y-m-d h:m:s");
-        $current_file = __FILE__;
-
-
-        $message = "[{$date}] [{$current_file}] ${message}".PHP_EOL;
-        return file_put_contents($logFile, $message, FILE_APPEND);
-    }
-
-    function isFilenameFiltered($filepath) {
+    public function canStopFileProcessing($filepath) {
 
 
         // turns out we need a file we know will be at the same level as an object id, metadata.xml
@@ -160,29 +184,39 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         return $return;
 
     }
-
-// https://stackoverflow.com/questions/2050859/copy-entire-contents-of-a-directory-to-another-using-php
+    /**
+     * That's is correct, I have a private function to recursively copy directories. but I can't claim credit for writing it.
+     *
+     * function code stolen from
+     * https://stackoverflow.com/questions/2050859/copy-entire-contents-of-a-directory-to-another-using-php
+     */
+//
     function recurse_copy($src,$dst) {
         $dir = opendir($src);
         @mkdir($dst);
         while(false !== ( $file = readdir($dir)) ) {
             if (( $file != '.' ) && ( $file != '..' )) {
-                if ( is_dir($src . '/' . $file) ) {
-                    recurse_copy($src . '/' . $file,$dst . '/' . $file);
+                if ( is_dir($src . DIRECTORY_SEPARATOR . $file) ) {
+                    recurse_copy($src . DIRECTORY_SEPARATOR . $file,$dst . DIRECTORY_SEPARATOR . $file);
                 }
                 else {
-                    copy($src . '/' . $file,$dst . '/' . $file);
+                    copy($src . DIRECTORY_SEPARATOR . $file,$dst . DIRECTORY_SEPARATOR . $file);
                 }
             }
         }
         closedir($dir);
     }
-
+    /**
+     * That's is correct, I have a private function to recursively remove directories. but I can't claim credit for writing it.
+     *
+     * function code stolen from
+     * https://stackoverflow.com/questions/2050859/copy-entire-contents-of-a-directory-to-another-using-php
+     */
     function recurse_rmdir($src) {
         $dir = opendir($src);
         while(false !== ( $file = readdir($dir)) ) {
             if (( $file != '.' ) && ( $file != '..' )) {
-                $full = $src . '/' . $file;
+                $full = $src . DIRECTORY_SEPARATOR . $file;
                 if ( is_dir($full) ) {
                     recurse_rmdir($full);
                 }
@@ -195,12 +229,18 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         rmdir($src);
     }
 
+    /**
+     *
+     * @return SplObjectStorage
+     * @throws Exception
+     */
     private function harvestAWS()
     {
         $fileStorage = new SplObjectStorage();
         $directory_contents = $this->scan_aws_s3();
         $this->create_basex_catalog($directory_contents);
         $this->digitalCommonsTransformBaseX->executeBaseXTransform($this->getMasterCatalogFullpath());
+        $this->addGeneratedModsFiles($directory_contents);
         $downloaded_file_list =$this->getFlatDownloadedObjectList();
         foreach ($downloaded_file_list as $value) {
             $file = new stdClass();
@@ -309,7 +349,6 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                 $this->removeFromDownloadedObjectList($failedid);
             }
         }
-
         $this->setMasterCatalogFullpath(sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->getAWSBucketName() . DIRECTORY_SEPARATOR . $this->getBasexCatalogName());
         $master_catalog_fullpath = $this->getMasterCatalogFullpath();
         if ( file_exists($master_catalog_fullpath) ) {
@@ -339,7 +378,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                     $file_name = pathinfo($key, PATHINFO_BASENAME);
                     $object_dir =  pathinfo($key, PATHINFO_DIRNAME);
                     $object_id = pathinfo($object_dir, PATHINFO_FILENAME);
-                    if ( $this->isFilenameFiltered($key) || $this->isInFailedObjectList($object_id)) {
+                    if ( $this->canStopFileProcessing($key) || $this->isInFailedObjectList($object_id)) {
                         continue;
                     }
 
@@ -381,13 +420,44 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                     }
                 }
             }
-            // else {
-            //    logmsg("Error: Failure: Line is empty or null or something " . print_r($line, true));
-            //}
+
         }
         $metadata_xml_writer->endElement(); //close catalog
         $metadata_xml_writer->endDocument(); //close document
         return $metadata_xml_writer;
+    }
+
+    public function addGeneratedModsFiles($harvest_array_list) {
+
+        $TMP_DIR_HARVEST = $this->getTmpHarvestDirectory();
+
+
+
+        foreach ($harvest_array_list as $line) {
+            if ( !(empty($line)) && isset($line) && is_array($line) ) {
+                foreach($line as $item) {
+                    $key = $item['Key'];
+                    $file_name = pathinfo($key, PATHINFO_BASENAME);
+                    $object_dir =  pathinfo($key, PATHINFO_DIRNAME);
+                    $object_id = pathinfo($object_dir, PATHINFO_FILENAME);
+
+
+                    $full_object_path = $TMP_DIR_HARVEST . DIRECTORY_SEPARATOR . $object_id;
+
+                    if ($file_name === 'metadata.xml'){
+                        if (file_exists($full_object_path) ) {
+                            $this->logmsg($full_object_path . DIRECTORY_SEPARATOR . "MODS.xml");
+                            $mods_filepath = $full_object_path . DIRECTORY_SEPARATOR . "MODS.xml";
+                            $this->addDownloadedObjectList($object_id, $mods_filepath);
+                        } else {
+                            throw new Exception("Unable to determine location of generated MODS.xml file");
+                        }
+                    }
+                }
+            }
+
+        }
+
     }
 
 
@@ -593,5 +663,15 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         $this->digitalCommonsTransformBaseX = $digitalCommonsTransformBaseX;
     }
 
+    private function logmsg($message) {
 
+        $date = date("Y-m-d h:m:s");
+        $current_file = __FILE__;
+        $includes_dir =  pathinfo($current_file, PATHINFO_DIRNAME);
+        $toplevel_dir =  pathinfo($includes_dir, PATHINFO_DIRNAME);
+        $logFile = $toplevel_dir . DIRECTORY_SEPARATOR . $this->batchProcessLogFileName;
+
+        $message = "[{$date}] [{$current_file}] ${message}".PHP_EOL;
+        return file_put_contents($logFile, $message, FILE_APPEND);
+    }
 }

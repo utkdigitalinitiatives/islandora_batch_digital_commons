@@ -10,7 +10,7 @@ class DigitalCommonsTransformBaseX
 {
     protected $transform_uri = null;
 
-    protected $basex_bepress_mods_transform_name = null;
+    protected $basex_bepress_mods_transform_name = "bepress-default-mods.xq";
 
     // this needs to be set dynamically
     protected $java_fullpath = null;
@@ -27,7 +27,7 @@ class DigitalCommonsTransformBaseX
             $this->java_fullpath = $java_fullpath;
         }
         if (is_null($transform_uri)) {
-            $this->setTransformUri('https://github.com/utkdigitalinitiatives/basex-bepress-to-mods/archive/master.zip');
+            $this->setTransformUri('https://github.com/robert-patrick-waltz/basex-bepress-to-mods/archive/master.zip');
         } else {
             $this->setTransformUri($transform_uri);
 
@@ -116,11 +116,13 @@ class DigitalCommonsTransformBaseX
         } else {
             throw new ErrorException("Failed Opening the zip file downloaded from {$uri}.");
         }
+
+        $this->installFunctxBaseXModule();
     }
 
     private function getDigitalCommonsToModsTransform() {
 
-        $bepress_mods_transform =  $this->getBasexBepressToModsDir() . DIRECTORY_SEPARATOR . $this->getBasexBepressModsTransformName();
+        $bepress_mods_transform =  $this->getBaseXBepressToModsDir() . DIRECTORY_SEPARATOR . $this->getBasexBepressModsTransformName();
         if (! file_exists($bepress_mods_transform) ) {
             throw new ErrorException("{$bepress_mods_transform} does not exist");
         }
@@ -155,13 +157,38 @@ class DigitalCommonsTransformBaseX
         $bepress_mods_transform = $this->getDigitalCommonsToModsTransform();
         $tmp_log_dir = sys_get_temp_dir() . DIRECTORY_SEPARATOR;
         # Run code
-        $executable =  $this->getJavaExec() . " -cp {$classpath} {$basex_jvm} org.basex.BaseX -bsource_filepath=\"{$master_catalog_doc}\" -o {$tmp_log_dir}/bepress_to_mods_basex.out {$bepress_mods_transform}";
+        $baseX_executeable = $this->getBasexExecutable();
+
+        $executable = $baseX_executeable . " -bsource_filepath=\"{$master_catalog_doc}\" {$bepress_mods_transform}";
 
         $results = null;
         $return = null;
         exec($executable, $results, $return);
         return $return;
     }
+    private function getBaseXExecutable() {
+        $basex_dir= $this->getBasexDir();
+    # Core and library classes
+        if ( ! file_exists("{$basex_dir}/BaseX.jar") )
+        {
+            throw new ErrorException("{$basex_dir}/BaseX.jar is not found");
+        }
+
+        if ( ! file_exists("{$basex_dir}/lib") || ! is_dir("{$basex_dir}/lib") )
+        {
+            throw new ErrorException("{$basex_dir}/lib is not found");
+        }
+
+        $classpath="${basex_dir}/BaseX.jar:${basex_dir}/lib/*:${basex_dir}/lib/custom/*";
+
+        # Options for virtual machine (can be extended by global options)
+        $basex_jvm="-Xmx12g";
+        $tmp_log_dir = sys_get_temp_dir() . DIRECTORY_SEPARATOR;
+        $executable =  $this->getJavaExec() . " -cp {$classpath} {$basex_jvm} org.basex.BaseX  -o {$tmp_log_dir}/bepress_to_mods_basex.out ";
+        return $executable;
+
+    }
+
     private function deleteDirectoryTree($dir) {
         $files = array_diff(scandir($dir), array('.','..'));
         foreach ($files as $file) {
@@ -170,6 +197,14 @@ class DigitalCommonsTransformBaseX
         return rmdir($dir);
     }
 
+    public function installFunctxBaseXModule() {
+        $executable = $this->getBaseXExecutable();
+        $executable .= ' -c"REPO INSTALL http://files.basex.org/modules/expath/functx-1.0.xar"';
+        $results = null;
+        $return = null;
+        exec($executable, $results, $return);
+        return $return;
+    }
     /**
      * @return string
      */

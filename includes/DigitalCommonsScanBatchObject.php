@@ -23,9 +23,8 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
     // Keys in objectInfo that are not to be datastreams.
     // Path to MODS->DC XSLT.
     public $modsToDcTransform = null;
-    public static $BATCH_OBJECT_PREFIX = "IslandoraScanBatchObjectDigitalCommons";
-    private $batchProcessLogFileName = "IslandoraScanBatchObjectDigitalCommons.log";
-    private  $batchProcessLogFile;
+    public static $BATCH_OBJECT_PREFIX = "DigitalCommonsScanBatchObject";
+    private $batchProcessLogFileName = "DigitalCommonsScanBatchObject.log";
     protected $dsLabelToURI = array();
     private $digitalCommonsFulltextURL = null;
 
@@ -38,7 +37,7 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
         $this->modsToDcTransform = drupal_get_path('module', 'islandora_batch') . '/transforms/mods_to_dc.xsl';
         $this->baseName = $base_name;
         $this->objectInfo = $object_info;
-        $this->batchProcessLogFile = $object_info->getArchiveTopLevelDirectoryFullPath() . "/{$this->batchProcessLogFileName}";
+
         $this->resources = array();
     }
 
@@ -57,6 +56,10 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
     public function batchProcess()
     {
         try {
+            $log_message = " Batch Process Start. Series name: " . $this->getObjectInfo()->getDigitalCommonsSeries() .
+                " - DigitalCommonsObjectId: " . $this->getObjectInfo()->getDigitalCommonsObjectId() .
+                " - TRACE Id: " . $this->id ;
+            $this->logDigitalCommonsBatch($log_message);
             // Use object_info to create some datastreams.
             $this->addDigitalCommonsXMLDatastream();
             $this->addModsDatastream();
@@ -68,22 +71,21 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
 
             $this->addRelationships();
 
-            $log_message = date(DATE_ATOM) . " writing to " . $this->batchProcessLogFile .
-                ": Batch Process Completed. Series name: " . $this->objectInfo->getDigitalCommonsSeries() .
-                " - TRACE Id: " . $this->id .
-                " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . "\n";
+            $log_message = " Batch Process Completed. Series name: " . $this->getObjectInfo()->getDigitalCommonsSeries() .
+                " - DigitalCommonsObjectId: " . $this->getObjectInfo()->getDigitalCommonsObjectId() .
+                " - TRACE Id: " . $this->id ;
             $this->logDigitalCommonsBatch($log_message);
 
 
-            $key =  IslandoraScanBatchObjectDigitalCommons::$BATCH_OBJECT_PREFIX . $this->id;
+            $key =  DigitalCommonsScanBatchObject::$BATCH_OBJECT_PREFIX . $this->id;
             $expire_datetime = time() + $this->CACHE_EXPIRY_SECONDS;
             cache_set($key, $this, 'cache_field', $expire_datetime);
             return ISLANDORA_BATCH_STATE__DONE;
         } catch (Exception $e) {
-            $message = t(date(DATE_ATOM) ." Series name: " . $this->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " . $e->getMessage());
+            $message = t(date(DATE_ATOM) ." Series name: " . $this->getObjectInfo()->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $this->getObjectInfo()->getDigitalCommonsObjectId() . " - " . $e->getMessage());
             \drupal_set_message($message, 'error');
             \watchdog($message, WATCHDOG_ERROR);
-            \watchdog('islandora_scan_batch_digital_commons', $message, null, WATCHDOG_ERROR);
+//            \watchdog('islandora_scan_batch_digital_commons', $message, null, WATCHDOG_ERROR);
 
             return ISLANDORA_BATCH_STATE__ERROR;
         }
@@ -118,8 +120,7 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
     protected function addSupplementalModsFiles($modsSupplementaryFileMap)
     {
         foreach ($modsSupplementaryFileMap as $suppl_file) {
-            $suppl_file_string = print_r($suppl_file, true);
-            $this->logDigitalCommonsBatch($suppl_file_string . "\n");
+
             $suppl_file_num = null;
             $underscore_Position = strpos($suppl_file->ds_name, '_');
             if (isset($underscore_Position) && $underscore_Position > 0) {
@@ -132,19 +133,19 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
             // our naming of the supplemental DS Name using an origin index of 1
             // while the name of the filesystem files using an origin index of 0
             $suppl_file_num = $suppl_file_num - 1;
-            $this->logDigitalCommonsBatch("suppl number = $suppl_file_num \n");
+            $this->logDigitalCommonsBatch("suppl number = $suppl_file_num");
             if (isset($suppl_file_num)) {
                 $found_suppl = false;
                 foreach ($this->objectInfo->getFileArray() as $file_info) {
                     $file_info_string = print_r($file_info, true);
-                    $this->logDigitalCommonsBatch($file_info_string . "\n");
+                    $this->logDigitalCommonsBatch($file_info_string);
                     if (preg_match("/^${suppl_file_num}\-(.+)$/", $file_info->getFilename(), $supplFileInfoMatch) && !$file_info->isProcessed()) {
                         $canonicalSupplFileName = $supplFileInfoMatch[1];
-                        $this->logDigitalCommonsBatch("$suppl_file->ds_title === $canonicalSupplFileName \n");
+                        $this->logDigitalCommonsBatch("$suppl_file->ds_title === $canonicalSupplFileName");
                         if ($suppl_file->ds_title === $canonicalSupplFileName) {
                             $dsName = $suppl_file->ds_name;
                             $dsMimetype = $suppl_file->mime_type;
-                            $this->logDigitalCommonsBatch("uploading $dsName $dsMimetype, $canonicalSupplFileName \n");
+                            $this->logDigitalCommonsBatch("uploading $dsName $dsMimetype, $canonicalSupplFileName");
                             $this->addNewDatastreamFileInfo($dsName, $dsMimetype, $canonicalSupplFileName, $file_info);
                             $found_suppl = true;
                             break;
@@ -152,10 +153,12 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
                     }
                 }
                 if (! $found_suppl) {
+                    $suppl_file_string = print_r($suppl_file, true);
                     $exception = new Exception("Unable to determine supplemental file number from $suppl_file_string");
                     throw $exception;
                 }
             } else {
+                $suppl_file_string = print_r($suppl_file, true);
                 $exception = new Exception("Unable to determine supplemental file number from $suppl_file_string");
                 throw $exception;
             }
@@ -312,7 +315,7 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
      * it is always named metadata.xml.
      *
      */
-    protected function addFullTextPDF()
+    protected function addPrimaryDocument()
     {
 
         $thesis_file_info = $this->retrieveFileInfoFromName('fulltext');
@@ -620,8 +623,11 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
         foreach ($content_models as $content_model) {
             switch ($content_model) {
                 case "ir:thesisCModel": {
-                    $this->addFullTextPDF();
+                    // run through the supplemental files first to exclude
+                    // possibilities for discovering the primary document
                     $this->addSupplementalFiles();
+                    $this->addPrimaryDocument();
+
 //                    $this->addCorrespondence();
                 }
                 case "ir:citationCModel": {
@@ -904,6 +910,7 @@ EOXML;
 
     protected function printWarningMessage($comment ) {
         $message = t(date(DATE_ATOM) ." Series name: " . $this->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " . $comment);
+        $this->logmsg($message);
         \drupal_set_message($message, 'warning');
         \watchdog('islandora_scan_batch_ditigal_commons', $message, null, WATCHDOG_WARNING);
     }
@@ -967,15 +974,20 @@ EOXML;
         }
         return $supplFileInfoMatch;
     }
+    private function logmsg($message) {
+
+        $date = date("Y-m-d h:m:s");
+        $current_file = __FILE__;
+        $includes_dir =  pathinfo($current_file, PATHINFO_DIRNAME);
+        $toplevel_dir =  pathinfo($includes_dir, PATHINFO_DIRNAME);
+        $logFile = $toplevel_dir . DIRECTORY_SEPARATOR . $this->batchProcessLogFileName;
+
+        $message = "[{$date}] [{$current_file}] ${message}".PHP_EOL;
+        return file_put_contents($logFile, $message, FILE_APPEND);
+    }
 
     public function logDigitalCommonsBatch($message) {
-        $resource = fopen ( $this->batchProcessLogFile, "a+" );
-        if ($resource) {
-            fwrite($resource, $message);
-            fclose($resource);
-        } else {
-            \watchdog($message, WATCHDOG_INFO);
-        }
+        $this->logmsg($message);
     }
 
     /**

@@ -117,14 +117,14 @@ function islandora_batch_digital_commons_retrieveDataFromDsvFile($data_file_path
 function islandora_batch_digital_commons_islandora_batch_object_processed(AbstractFedoraObject $ingest_object, $is_object_state_done)
 {
     if ($is_object_state_done) {
-        $key = IslandoraScanBatchObjectDigitalCommons::$BATCH_OBJECT_PREFIX . $ingest_object->id;
+        $key = DigitalCommonsScanBatchObject::$BATCH_OBJECT_PREFIX . $ingest_object->id;
         $cached_object = cache_get($key, 'cache_field');
-        $islandoraScanBatchObjectDigitalCommons = $cached_object->data;
+        $digitalCommonsScanBatchObject = $cached_object->data;
 
-        if (isset($islandoraScanBatchObjectDigitalCommons) && is_a($islandoraScanBatchObjectDigitalCommons, 'IslandoraScanBatchObjectDigitalCommons')) {
+        if (isset($digitalCommonsScanBatchObject) && is_a($digitalCommonsScanBatchObject, 'DigitalCommonsScanBatchObject')) {
             # determine if the object needs to be embargoed or withdrawn
-            $islandoraScanBatchObjectDigitalCommons->logDigitalCommonsBatch("Om islandora_batch_digital_commons_islandora_batch_object_processed\n");
-            $object_info = $islandoraScanBatchObjectDigitalCommons->getObjectInfo();
+            $digitalCommonsScanBatchObject->logDigitalCommonsBatch("Om islandora_batch_digital_commons_islandora_batch_object_processed\n");
+            $object_info = $digitalCommonsScanBatchObject->getObjectInfo();
             $is_object_withdrawn = false;
             $digital_commons_metadata_xml = $object_info->getDigitalCommonsMetadata();
             $digital_commons_metadata_domDocument = new DOMDocument();
@@ -133,7 +133,7 @@ function islandora_batch_digital_commons_islandora_batch_object_processed(Abstra
 
             $digital_commons_metadata_withdrawn_datestr = $digital_commons_metadata_xpath->evaluate('string(//documents/document/withdrawn)');
             // Withdraw
-            $islandoraScanBatchObjectDigitalCommons->logDigitalCommonsBatch("WithDraw\n");
+            $digitalCommonsScanBatchObject->logDigitalCommonsBatch("WithDraw\n");
             if (! empty($digital_commons_metadata_withdrawn_datestr)) {
                 // verification that the date string returned is a valid
                 $is_object_withdrawn = true;
@@ -141,7 +141,7 @@ function islandora_batch_digital_commons_islandora_batch_object_processed(Abstra
                 islandora_scholar_embargo_set_embargo($ingest_object);
 
             }
-            $islandoraScanBatchObjectDigitalCommons->logDigitalCommonsBatch("Embargo\n");
+            $digitalCommonsScanBatchObject->logDigitalCommonsBatch("Embargo\n");
             if (! $is_object_withdrawn) {
                 // Embargo
                 $digital_commons_metadata_embargo_datestr = $digital_commons_metadata_xpath->evaluate('string(//documents/document/fields/field[@name="embargo_date"]/value)');
@@ -154,7 +154,7 @@ function islandora_batch_digital_commons_islandora_batch_object_processed(Abstra
 
                         if ($digital_commons_metadata_embargo_timestamp > $currentTime) {
                             // embargo timestamp occurs after the current time, so set up an embargo of all the datastreams
-                            $datastreams = $islandoraScanBatchObjectDigitalCommons->correlateModelEmbargoDatastreams();
+                            $datastreams = $digitalCommonsScanBatchObject->correlateModelEmbargoDatastreams();
                             // needs xsd:dateTime string -- CCYY-MM-DDThh:mm:ss[Z|(+|-)hh:mm]
                             //embargo the datastreams for the object
                             $digital_commons_metadata_embargo_date = date( 'c', $digital_commons_metadata_embargo_timestamp);
@@ -168,46 +168,54 @@ function islandora_batch_digital_commons_islandora_batch_object_processed(Abstra
             }
             // make the unmodified version of the object
             // to be the latest revision, not the copy with the BePress coverpage
-            $file_uri = $islandoraScanBatchObjectDigitalCommons->getFulltextURL();
+            /*
+
+            // no longer concerned about removing the DigitalCommons BePress generated coverpage.
+            // we now receive the original file without coverpage via AWS S3
+            //
+            // before, in the zip file sent to us, only the modified files that included generated coverpage were included.
+            //
+            $file_uri = $digitalCommonsScanBatchObject->getFulltextURL();
             $key = null;
             if (isset($file_uri)) {
-                $correlations = $islandoraScanBatchObjectDigitalCommons->correlateModelDatastreams();
+                $correlations = $digitalCommonsScanBatchObject->correlateModelDatastreams();
                 $correlations_log = print_r($correlations, true);
 
-                $islandoraScanBatchObjectDigitalCommons->logDigitalCommonsBatch("correlations log  $correlations_log\n");
+                $digitalCommonsScanBatchObject->logDigitalCommonsBatch("correlations log  $correlations_log\n");
                 if (count($correlations) == 1) {
                     $keys = array_keys($correlations[0]);
                     $keys_log = print_r($keys, true);
-                    $islandoraScanBatchObjectDigitalCommons->logDigitalCommonsBatch("correlations log $keys_log\n");
+                    $digitalCommonsScanBatchObject->logDigitalCommonsBatch("correlations log $keys_log\n");
                     if (count($keys) == 1) {
                         $key = $keys[0];
                     }
                 }
-                if ($key) {
-                    $islandoraScanBatchObjectDigitalCommons->logDigitalCommonsBatch("Get new main datastream $file_uri\n");
+                if (isset($key)) {
+                    $digitalCommonsScanBatchObject->logDigitalCommonsBatch("Get new main datastream $file_uri\n");
                     $modifyDatastreamArgs = array('dsLocation' => $file_uri);
                     try {
-                    $return = $islandoraScanBatchObjectDigitalCommons->repository->api->m->modifyDatastream($ingest_object->id, $key, $modifyDatastreamArgs);
+                    $return = $digitalCommonsScanBatchObject->repository->api->m->modifyDatastream($ingest_object->id, $key, $modifyDatastreamArgs);
                     } catch ( Exception $e) {
-                        $message = t(date(DATE_ATOM) ." Series name: " . $islandoraScanBatchObjectDigitalCommons->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $islandoraScanBatchObjectDigitalCommons->getDigitalCommonsObjectId() . " - " . $e->getMessage());
+                        $message = t(date(DATE_ATOM) ." Series name: " . $digitalCommonsScanBatchObject->getObjectInfo()->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $digitalCommonsScanBatchObject->getObjectInfo()->getDigitalCommonsObjectId() . " - " . $e->getMessage());
                         \drupal_set_message($message, 'error');
                         \watchdog($message, WATCHDOG_ERROR);
                         \watchdog('islandora_scan_batch_digital_commons', $message, null, WATCHDOG_ERROR);
                     }
                     if (count($return) == 0) {
-                        $message = t(date(DATE_ATOM) ." Series name: " . $islandoraScanBatchObjectDigitalCommons->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $islandoraScanBatchObjectDigitalCommons->getDigitalCommonsObjectId() . " - " . " unable to modify original datastream from location " . $file_uri . "\n");
+                        $message = t(date(DATE_ATOM) ." Series name: " . $digitalCommonsScanBatchObject->getObjectInfo()->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $digitalCommonsScanBatchObject->getObjectInfo()->getDigitalCommonsObjectId() . " - " . " unable to modify original datastream from location " . $file_uri . "\n");
                         \drupal_set_message($message, 'error');
                         \watchdog($message, WATCHDOG_ERROR);
                         \watchdog('islandora_scan_batch_digital_commons', $message, null, WATCHDOG_ERROR);
 
                     }
                 } else {
-                    $islandoraScanBatchObjectDigitalCommons->logDigitalCommonsBatch("Unable to get new datastream from $file_uri for $ingest_object->id\n");
+                    $digitalCommonsScanBatchObject->logDigitalCommonsBatch("Unable to get new datastream from $file_uri for $ingest_object->id\n");
                 }
             }
+            */
             // past revisions of the main datastream (mostly a PDF)
             # determine if the object needs revisions added to the main datastream
-            /*          $associations = $islandoraScanBatchObjectDigitalCommons->associateModelDatastreamsToRegex();
+            /*          $associations = $digitalCommonsScanBatchObject->associateModelDatastreamsToRegex();
 
                         if (count($associations) > 0) {
 
@@ -219,7 +227,7 @@ function islandora_batch_digital_commons_islandora_batch_object_processed(Abstra
                                     $returnDatastream = $ingest_object->repository->api->m->getDatastream($ingest_object->id, $key);
                                     $datastreamCreatedTimestamp = strtotime($returnDatastream['dsCreateDate']);
                                     $responses = array();
-                                    $revisionsFileList = $islandoraScanBatchObjectDigitalCommons->findRevisionFiles($value);
+                                    $revisionsFileList = $digitalCommonsScanBatchObject->findRevisionFiles($value);
 
                                     if (isset($revisionsFileList)) {
                                         $responses = islandora_batch_digital_commons_apply_revisions($ingest_object, $key, $revisionsFileList);
@@ -227,7 +235,7 @@ function islandora_batch_digital_commons_islandora_batch_object_processed(Abstra
 
                                     if (count($responses) > 0) {
                                         // make the original the top revision again
-                                        $file_uri = $islandoraScanBatchObjectDigitalCommons->getFulltextURL();
+                                        $file_uri = $digitalCommonsScanBatchObject->getFulltextURL();
                                         $modifyDatastreamArgs = array('dsLocation' => $file_uri);
                                         sleep(2);
                                         $return = $ingest_object->repository->api->m->modifyDatastream($ingest_object->id, $key, $modifyDatastreamArgs);
@@ -247,7 +255,7 @@ function islandora_batch_digital_commons_islandora_batch_object_processed(Abstra
                                     } else {
                                         // there are no revisions, but we want to make the unmodified version of the object
                                         // to be the latest revision, not the copy with the BePress coverpage
-                                        $file_uri = $islandoraScanBatchObjectDigitalCommons->getFulltextURL();
+                                        $file_uri = $digitalCommonsScanBatchObject->getFulltextURL();
                                         $modifyDatastreamArgs = array('dsLocation' => $file_uri);
                                         sleep(2);
                                         $return = $ingest_object->repository->api->m->modifyDatastream($ingest_object->id, $key, $modifyDatastreamArgs);
@@ -260,7 +268,7 @@ function islandora_batch_digital_commons_islandora_batch_object_processed(Abstra
                             }
 
             } */
-            $islandoraScanBatchObjectDigitalCommons->logDigitalCommonsBatch("AB islandora_batch_digital_commons_islandora_batch_object_processed\n");
+            $digitalCommonsScanBatchObject->logDigitalCommonsBatch("AB islandora_batch_digital_commons_islandora_batch_object_processed\n");
         } else {
             new Exception("Unable to retrieve cache for the object " . $ingest_object->id . "! Unable to determine revision history and embargo");
         }
