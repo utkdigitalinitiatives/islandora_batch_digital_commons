@@ -130,21 +130,17 @@ function drush_islandora_batch_digital_commons_scan_preprocess() {
   // 'islandora/object/some:object', for example). Resetting to ensure a new
   // connection gets created should fix it.
   // module_load_include('inc', 'islandora_batch', 'includes/utilities');
-
-  module_load_include('php','islandora_batch_digital_commons','includes/IslandoraBatchFedoraObjectModelCache');
-  module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchFactory');
-    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsFileInfo.php');
-    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchObject.php');
-
-    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsObjectInfo.php');
-    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsTransformBaseX.php');
-
-    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchAWS.php');
-    module_load_include('php','islandora_batch_digital_commons','includes/ingest_digital_commons.batch.inc');
-    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchBase.php');
-    module_load_include('php','islandora_batch_digital_commons','includes/IslandoraBatchFedoraObjectModelCache.php');
-    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchFactory.php');
+    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsFedoraObjectModelCache');
+    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsFileInfo');
+    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsObjectInfo');
+    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchAWS');
+    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchBase');
+    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchFactory');
+    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchObject');
+    module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsTransformBaseX');
+    module_load_include('inc','islandora_batch_digital_commons','includes/ingest_digital_commons.batch');
     putenv( "HOME=/etc/php5" );
+
   drupal_static_reset('islandora_get_tuque_connection');
   $connection = islandora_get_tuque_connection();
   $java_option = drush_get_option('java');
@@ -160,7 +156,7 @@ function drush_islandora_batch_digital_commons_scan_preprocess() {
     'tmp_scan_directory' => drush_get_option('tmp_scan_directory'),
   );
     $scan_factory = new DigitalCommonsScanBatchFactory();
-    $cache = new IslandoraBatchFedoraObjectModelCache ($connection);
+    $cache = new DigitalCommonsFedoraObjectModelCache ($connection);
     $collections_data = islandora_batch_digital_commons_retrieveDataFromDsvFile($parameters['input']);
     foreach ($collections_data as $collection) {
         $parameters['digital_commons_series_name'] = $collection->digitalCommonsSeries;
@@ -183,8 +179,6 @@ function drush_islandora_batch_digital_commons_scan_preprocess() {
             $preprocessed = islandora_batch_digital_commons_handle_preprocessor($preprocessor);
             drush_log(t("SetId: @s", array('@s' => $preprocessor->getSetId())), "ok");
           } catch (Exception $e) {
-              echo "HOME IS SET TO : " . getenv( 'HOME' ) . "\n";
-              echo $e->getMessage();
               drupal_set_message(t('Error Processing Islandora collection objects from (PID %p).',
                   array('%p' =>  $parameters['collection_pid'])), 'error');
               watchdog('islandora_batch_digital_commons', 'Error Processing Islandora collection objects from (PID %p).',
@@ -205,7 +199,7 @@ function drush_islandora_batch_digital_commons_ingest() {
   module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsFileInfo');
   module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsObjectInfo');
   module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchObject');
-  module_load_include('php','islandora_batch_digital_commons','includes/IslandoraBatchFedoraObjectModelCache');
+  module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsFedoraObjectModelCache');
   module_load_include('inc','islandora_batch_digital_commons','includes/islandora_scan_batch_digital_commons');
 
   $parameters = array(
