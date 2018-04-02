@@ -71,10 +71,10 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
      *   form.
      *   Available parameters are from the particular concrete implementation.
      */
-    public function __construct( $connection,  $object_model_cache, $parameters)
+    public function __construct($connection, $object_model_cache, $parameters)
     {
         // pass this off to the ancestors for processing
-        parent::__construct($connection,  $object_model_cache, $parameters);
+        parent::__construct($connection, $object_model_cache, $parameters);
         // $this->root_pid = variable_get('islandora_repository_pid', 'islandora:root');
         $this->repository = $this->connection->repository;
         $this->object_model_cache = $object_model_cache;
@@ -91,24 +91,24 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         // create a reusable client for this object based on the provider property
         $this->s3Client = new Aws\S3\S3Client([
             'version' => 'latest',
-            'region'  => 'us-east-1',
+            'region' => 'us-east-1',
             'credentials' => $provider
         ]);
-        if (! isset($parameters['basex_bepress_mods_transform_name'])) {
+        if (!isset($parameters['basex_bepress_mods_transform_name'])) {
             throw new Exception("basex_bepress_mods_transform_name is not set in dsv file");
         }
         if (isset($parameters['$transform_uri'])) {
             $this->setDigitalCommonsTransformBaseX(new DigitalCommonsTransformBaseX($parameters['basex_bepress_mods_transform_name'], $parameters['$transform_uri']));
         } else {
-            $this->setDigitalCommonsTransformBaseX( new DigitalCommonsTransformBaseX($parameters['basex_bepress_mods_transform_name']));
+            $this->setDigitalCommonsTransformBaseX(new DigitalCommonsTransformBaseX($parameters['basex_bepress_mods_transform_name']));
         }
-        if ( isset($parameters['basex_catalog_name'])) {
+        if (isset($parameters['basex_catalog_name'])) {
             $this->setBasexCatalogName($parameters['basex_catalog_name']);
         } else {
-            if ( is_null($this->getDigitalCommonsSeriesName()) ) {
+            if (is_null($this->getDigitalCommonsSeriesName())) {
                 throw new Exception("Digital Commons Series Name must be set\n");
             }
-            $base_catalog_name =  str_replace(DIRECTORY_SEPARATOR, "-", $this->getDigitalCommonsSeriesName()) . "-" . $this->generateRandomString(6) . ".xml" ;
+            $base_catalog_name = str_replace(DIRECTORY_SEPARATOR, "-", $this->getDigitalCommonsSeriesName()) . "-" . $this->generateRandomString(6) . ".xml";
 
             $this->setBasexCatalogName($base_catalog_name);
         }
@@ -116,11 +116,12 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
 
     /**
      * That's is correct, I have a private function to generate random strings. but I can't claim credit for writing it.
-     * 
+     *
      * function code stolen from
      * https://stackoverflow.com/questions/4356289/php-random-string-generator
      */
-    private  function generateRandomString($length = 6) {
+    private function generateRandomString($length = 6)
+    {
         $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
         $charactersLength = strlen($characters);
         $randomString = '';
@@ -129,6 +130,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         }
         return $randomString;
     }
+
     /**
      * Get the name of the class to instantiate for the batch operations.
      *
@@ -137,6 +139,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
     {
         return "DigitalCommonsScanBatchObject";
     }
+
     /**
      * Get a listing of "file-object"-like entries.
      *
@@ -154,12 +157,13 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
 
 
     /**
+     * determine if the filename submitted as filepath conforms to a pattern recognized as not processable.
      *
-     * determine if the filename submitted as filepath conforms to a pattern recognized as not processable. 
-     * 
+     * @param $filepath
+     * @return bool
      */
-
-    public function canStopFileProcessing($filepath) {
+    public function canStopFileProcessing($filepath)
+    {
 
 
         // turns out we need a file we know will be at the same level as an object id, metadata.xml
@@ -168,15 +172,15 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
 
         $filename = basename($filepath);
         $return = false;
-        switch ($filename)
-        {
-            case ('stamped.pdf'): {
-                $return = true;
-                break;
-            }
-            case (preg_match("/^\d+\-/", $filename) ? true : false ) :
+        switch ($filename) {
+            case ('stamped.pdf'):
+                {
+                    $return = true;
+                    break;
+                }
+            case (preg_match("/^\d+\-/", $filename) ? true : false) :
             case ('metadata.xml') :
-            case (preg_match("/\.pdf$/", $filename) ? true : false ) :
+            case (preg_match("/\.pdf$/", $filename) ? true : false) :
                 break;
             default:
                 $return = true;
@@ -184,43 +188,50 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         return $return;
 
     }
+
+
     /**
      * That's is correct, I have a private function to recursively copy directories. but I can't claim credit for writing it.
      *
      * function code stolen from
      * https://stackoverflow.com/questions/2050859/copy-entire-contents-of-a-directory-to-another-using-php
+     * @param $src
+     * @param $dst
      */
-//
-    function recurse_copy($src,$dst) {
+    function recurse_copy($src, $dst)
+    {
         $dir = opendir($src);
         @mkdir($dst);
-        while(false !== ( $file = readdir($dir)) ) {
-            if (( $file != '.' ) && ( $file != '..' )) {
-                if ( is_dir($src . DIRECTORY_SEPARATOR . $file) ) {
-                    recurse_copy($src . DIRECTORY_SEPARATOR . $file,$dst . DIRECTORY_SEPARATOR . $file);
-                }
-                else {
-                    copy($src . DIRECTORY_SEPARATOR . $file,$dst . DIRECTORY_SEPARATOR . $file);
+        while (false !== ($file = readdir($dir))) {
+            if (($file != '.') && ($file != '..')) {
+                if (is_dir($src . DIRECTORY_SEPARATOR . $file)) {
+                    recurse_copy($src . DIRECTORY_SEPARATOR . $file, $dst . DIRECTORY_SEPARATOR . $file);
+                } else {
+                    copy($src . DIRECTORY_SEPARATOR . $file, $dst . DIRECTORY_SEPARATOR . $file);
                 }
             }
         }
         closedir($dir);
     }
+
     /**
      * That's is correct, I have a private function to recursively remove directories. but I can't claim credit for writing it.
      *
      * function code stolen from
      * https://stackoverflow.com/questions/2050859/copy-entire-contents-of-a-directory-to-another-using-php
+     *
+     * * @param $src
      */
-    function recurse_rmdir($src) {
+
+    function recurse_rmdir($src)
+    {
         $dir = opendir($src);
-        while(false !== ( $file = readdir($dir)) ) {
-            if (( $file != '.' ) && ( $file != '..' )) {
+        while (false !== ($file = readdir($dir))) {
+            if (($file != '.') && ($file != '..')) {
                 $full = $src . DIRECTORY_SEPARATOR . $file;
-                if ( is_dir($full) ) {
+                if (is_dir($full)) {
                     recurse_rmdir($full);
-                }
-                else {
+                } else {
                     unlink($full);
                 }
             }
@@ -236,22 +247,39 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
      */
     private function harvestAWS()
     {
-        $fileStorage = new SplObjectStorage();
+
         $directory_contents = $this->scan_aws_s3();
-        $this->create_basex_catalog($directory_contents);
+
+
+        $this->downloadAWSFiles($directory_contents);
+
+        $this->create_basex_catalog();
+
         $this->digitalCommonsTransformBaseX->executeBaseXTransform($this->getMasterCatalogFullpath());
         $this->addGeneratedModsFiles($directory_contents);
-        $downloaded_file_list =$this->getFlatDownloadedObjectList();
+        $downloaded_file_list = $this->getFlatDownloadedObjectList();
+
+        $fileStorage = new SplObjectStorage();
         foreach ($downloaded_file_list as $value) {
             $file = new stdClass();
             $file->uri = $value;
-            $file->filename = pathinfo($value, PATHINFO_BASENAME);
+            $file->fullname = pathinfo($value, PATHINFO_BASENAME);
             $file->name = pathinfo($value, PATHINFO_FILENAME);
             $fileStorage->attach($file);
         }
         return $fileStorage;
     }
 
+    /**
+     * retrieve from the AWS S3 server a list of filenames that will be downloaded for processing.
+     * Each downloaded xml list is serialized and added to a temp file
+     * The filenames are stored in a temporary file in the temporary filesystem
+     * The temp file is then read and all the entries are grouped together by objectid
+     *
+     * before the
+     *
+     * @return array
+     */
     function scan_aws_s3()
     {
 
@@ -260,8 +288,8 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         $serialize_object_marker = "---XXX---";
         $errors = array();
         $harvest_list = array();
-        $prefix =  $this->getAWSFilterPath();
-        if (isset($prefix )) {
+        $prefix = $this->getAWSFilterPath();
+        if (isset($prefix)) {
             $prefix .= '/' . $this->getDigitalCommonsSeriesName();
         } else {
             $prefix = $this->getDigitalCommonsSeriesName();
@@ -270,7 +298,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         $delimiter = ';';
         $marker = null;
         $aws_params = null;
-        $iteration = 0;
+
         try {
             do {
                 if (isset($aws_params)) {
@@ -279,7 +307,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                     $aws_params = array('Bucket' => $this->getAWSBucketName(),
                         'Delimiter' => $delimiter,
                         'MaxKeys' => $max_page_count,
-                        'Prefix'  =>  $prefix);
+                        'Prefix' => $prefix);
                 }
                 $command = $s3Client->getCommand('ListObjects', $aws_params);
                 // $command['MaxKeys'] = 100;
@@ -291,7 +319,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                     file_put_contents($persist_listobjects_filepath, ($serialized_harvest), FILE_APPEND);
                 }
             } while ($result->get('IsTruncated') && isset($marker));
-            if ($result->get('IsTruncated') ) {
+            if ($result->get('IsTruncated')) {
                 $errors[] = sprintf('The number of keys greater than %u, the first part is shown', count($harvest_list));
             }
         } catch (S3Exception $e) {
@@ -300,8 +328,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
 // where to pull the completed serialized list and deserialize it where?
         $file_contents = file_get_contents($persist_listobjects_filepath);
         $exploded_data_list = explode($serialize_object_marker, $file_contents);
-        foreach ($exploded_data_list as $data)
-        {
+        foreach ($exploded_data_list as $data) {
             if (isset($data)) {
                 $unserialized_harvest = unserialize($data);
                 $harvest_list[] = $unserialized_harvest;
@@ -311,28 +338,43 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         return $harvest_list;
     }
 
-    function create_basex_catalog($harvest_array_list) {
-        $TMP_DIR_HARVEST= $this->getTmpScanDirectory()  . DIRECTORY_SEPARATOR . $this->getDigitalCommonsSeriesName();
-        $this->verifyCreateDirectory($TMP_DIR_HARVEST);
-        $this->setTmpHarvestDirectory($TMP_DIR_HARVEST);
+    public function create_basex_catalog()
+    {
 
-        $TMP_DIR_FAIL= sys_get_temp_dir()  . DIRECTORY_SEPARATOR . "fail"  . DIRECTORY_SEPARATOR . $this->getAWSBucketName() . DIRECTORY_SEPARATOR . $this->getDigitalCommonsSeriesName();
-        $this->verifyCreateDirectory($TMP_DIR_FAIL);
-        $this->setTmpFailedDirectory($TMP_DIR_FAIL);
+        $metadata_xml_writer = new XMLWriter();
+        $metadata_xml_writer->openMemory();
+        $metadata_xml_writer->setIndent(true);
+        $metadata_xml_writer->setIndentString(' ');
+        $metadata_xml_writer->startDocument('1.0', 'UTF-8');
+        $metadata_xml_writer->startElement('catalog');
+        $harvest_array_list = $this->getDownloadedObjectList();
+        foreach ($harvest_array_list as $object_id => $file_list) {
+            foreach ($file_list as $file_name) {
 
-        $metadataXMLWriter = $this->retrieveAwsMetadataFiles($harvest_array_list);
+                if ($file_name === 'metadata.xml') {
+                    file_put_contents($file_name, str_replace("/[\000-\007\010\013\014\016-\031]/", "", file_get_contents($file_name)));
+                    $metadata_xml_writer->startElement('doc');
+                    $metadata_xml_writer->startAttribute('href');
+                    $metadata_xml_writer->text($file_name);
+                    $metadata_xml_writer->endAttribute();
+                    $metadata_xml_writer->endElement(); // close doc
 
+                }
+            }
+        }
+        $metadata_xml_writer->endElement(); //close catalog
+        $metadata_xml_writer->endDocument(); //close document
 
-        $this->writeHarvestList($metadataXMLWriter);
-        return $this->getFlatDownloadedObjectList();
+        $this->writeHarvestList($metadata_xml_writer);
 
     }
 
 
-    public function writeHarvestList($xmlHarvestWriter) {
+    public function writeHarvestList($xmlHarvestWriter)
+    {
         // now the really silly this is that there are failures that are
         // part of the xml writer document that should be removed
-        $xmlHarvestDOM = new DOMDocument( "1.0", "UTF-8" );
+        $xmlHarvestDOM = new DOMDocument("1.0", "UTF-8");
         $xmlHarvestDOM->loadXML($xmlHarvestWriter->outputMemory());
         $xpathHarvest = new DOMXPath($xmlHarvestDOM);
 
@@ -351,55 +393,66 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         }
         $this->setMasterCatalogFullpath(sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->getAWSBucketName() . DIRECTORY_SEPARATOR . $this->getBasexCatalogName());
         $master_catalog_fullpath = $this->getMasterCatalogFullpath();
-        if ( file_exists($master_catalog_fullpath) ) {
+        if (file_exists($master_catalog_fullpath)) {
             unlink($master_catalog_fullpath);
         }
-        file_put_contents($master_catalog_fullpath,$xmlHarvestDOM->saveXML());
+        file_put_contents($master_catalog_fullpath, $xmlHarvestDOM->saveXML());
 
     }
 
-    public function retrieveAwsMetadataFiles($harvest_array_list) {
+    public function downloadAWSFiles($harvest_array_list)
+    {
 
-        $TMP_DIR_HARVEST = $this->getTmpHarvestDirectory();
-        $TMP_DIR_FAIL = $this->getTmpFailedDirectory();
+        $TMP_DIR_HARVEST = $this->getTmpScanDirectory() . DIRECTORY_SEPARATOR . $this->getDigitalCommonsSeriesName();
+        $this->verifyCreateDirectory($TMP_DIR_HARVEST);
+        $this->setTmpHarvestDirectory($TMP_DIR_HARVEST);
+
+        $TMP_DIR_FAIL = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "fail" . DIRECTORY_SEPARATOR . $this->getAWSBucketName() . DIRECTORY_SEPARATOR . $this->getDigitalCommonsSeriesName();
+        $this->verifyCreateDirectory($TMP_DIR_FAIL);
+        $this->setTmpFailedDirectory($TMP_DIR_FAIL);
+
         $s3Client = $this->getS3Client();
-        $downloaded_object = array();
-        $metadata_xml_writer = new XMLWriter();
-        $metadata_xml_writer->openMemory();
-        $metadata_xml_writer->setIndent(true);
-        $metadata_xml_writer->setIndentString(' ');
-        $metadata_xml_writer->startDocument('1.0', 'UTF-8');
-        $metadata_xml_writer->startElement('catalog');
 
         foreach ($harvest_array_list as $line) {
-            if ( !(empty($line)) && isset($line) && is_array($line) ) {
-                foreach($line as $item) {
+            if (!(empty($line)) && isset($line) && is_array($line)) {
+                foreach ($line as $item) {
                     $key = $item['Key'];
+                    // the last segment of the URI key is the full filename
                     $file_name = pathinfo($key, PATHINFO_BASENAME);
-                    $object_dir =  pathinfo($key, PATHINFO_DIRNAME);
+                    $object_dir = pathinfo($key, PATHINFO_DIRNAME);
                     $object_id = pathinfo($object_dir, PATHINFO_FILENAME);
-                    if ( $this->canStopFileProcessing($key) || $this->isInFailedObjectList($object_id)) {
+                    if ($this->canStopFileProcessing($key) || $this->isInFailedObjectList($object_id)) {
                         continue;
                     }
 
                     $full_object_path = $TMP_DIR_HARVEST . DIRECTORY_SEPARATOR . $object_id;
 
-                    if (! file_exists($full_object_path)) {
+                    if (!file_exists($full_object_path)) {
                         $this->verifyCreateDirectory($full_object_path);
                     }
 
+                    // Format the name of the file that will be downloaded and stored temporarily on
+                    // the filesystem
                     $tmp_file = $full_object_path . DIRECTORY_SEPARATOR . $file_name;
-                    $tmp_file = html_entity_decode ($tmp_file);
+                    $tmp_file = html_entity_decode($tmp_file);
+                    $tmp_file = strip_tags($tmp_file);
+                    $encoding = mb_detect_encoding($tmp_file);
+                    if ($encoding === "UTF-8") {
+                        $tmp_file = utf8_decode($tmp_file);
+                    } else if ($encoding !== "ISO-8859-1") {
+                        $tmp_file = mb_convert_encoding($tmp_file, 'ISO-8859-1');
+                    }
+
                     try {
                         $result = $s3Client->getObject(array(
                             'Bucket' => $this->getAWSBucketName(),
-                            'Key'    => $key,
+                            'Key' => $key,
                             'SaveAs' => $tmp_file
                         ));
-                    // this where the object should be added to an array that manages the downloaded items
+                        // this where the object should be added to an array that manages the downloaded items
                         $this->addDownloadedObjectList($object_id, $tmp_file);
                     } catch (Exception $ex) {
-                        if (! file_exists("$TMP_DIR_FAIL/$object_id")) {
+                        if (!file_exists("$TMP_DIR_FAIL/$object_id")) {
                             rename($full_object_path, "$TMP_DIR_FAIL/$object_id");
                         } else {
                             $this->recurse_copy($full_object_path, "$TMP_DIR_FAIL/$object_id");
@@ -409,43 +462,33 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                         continue;
 
                     }
-                    if ($file_name === 'metadata.xml') {
-                        file_put_contents($tmp_file,str_replace("/[\000-\007\010\013\014\016-\031]/","",file_get_contents($tmp_file)));
-                        $metadata_xml_writer->startElement('doc');
-                        $metadata_xml_writer->startAttribute('href');
-                        $metadata_xml_writer->text($tmp_file);
-                        $metadata_xml_writer->endAttribute();
-                        $metadata_xml_writer->endElement(); // close doc
 
-                    }
                 }
             }
 
         }
-        $metadata_xml_writer->endElement(); //close catalog
-        $metadata_xml_writer->endDocument(); //close document
-        return $metadata_xml_writer;
+
     }
 
-    public function addGeneratedModsFiles($harvest_array_list) {
+    public function addGeneratedModsFiles($harvest_array_list)
+    {
 
         $TMP_DIR_HARVEST = $this->getTmpHarvestDirectory();
 
 
-
         foreach ($harvest_array_list as $line) {
-            if ( !(empty($line)) && isset($line) && is_array($line) ) {
-                foreach($line as $item) {
+            if (!(empty($line)) && isset($line) && is_array($line)) {
+                foreach ($line as $item) {
                     $key = $item['Key'];
                     $file_name = pathinfo($key, PATHINFO_BASENAME);
-                    $object_dir =  pathinfo($key, PATHINFO_DIRNAME);
+                    $object_dir = pathinfo($key, PATHINFO_DIRNAME);
                     $object_id = pathinfo($object_dir, PATHINFO_FILENAME);
 
 
                     $full_object_path = $TMP_DIR_HARVEST . DIRECTORY_SEPARATOR . $object_id;
 
-                    if ($file_name === 'metadata.xml'){
-                        if (file_exists($full_object_path) ) {
+                    if ($file_name === 'metadata.xml') {
+                        if (file_exists($full_object_path)) {
                             $this->logmsg($full_object_path . DIRECTORY_SEPARATOR . "MODS.xml");
                             $mods_filepath = $full_object_path . DIRECTORY_SEPARATOR . "MODS.xml";
                             $this->addDownloadedObjectList($object_id, $mods_filepath);
@@ -470,6 +513,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
     {
         return $this->parameters['aws_bucket_name'];
     }
+
     /**
      * Get the target collection name. appended to the target will
      * determine the full path of where to search for target resources
@@ -511,11 +555,11 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
      */
     public function getTmpScanDirectory()
     {
-        if (isset($this->parameters['tmp_scan_directory']) ) {
+        if (isset($this->parameters['tmp_scan_directory'])) {
             return $this->parameters['tmp_scan_directory'];
 
         } else {
-            return sys_get_temp_dir(). DIRECTORY_SEPARATOR . $this->getAWSBucketName();
+            return sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->getAWSBucketName();
         }
     }
 
@@ -534,7 +578,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
      */
     public function getTmpHarvestDirectory()
     {
-        if (isset($this->parameters['tmp_harvest_directory']) ) {
+        if (isset($this->parameters['tmp_harvest_directory'])) {
             return $this->getTmpScanDirectory() . DIRECTORY_SEPARATOR . $this->getDigitalCommonsSeriesName();
         } else {
             return $this->parameters['tmp_harvest_directory'];
@@ -556,7 +600,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
      */
     public function getTmpFailedDirectory()
     {
-        if (isset($this->parameters['tmp_failed_directory']) ) {
+        if (isset($this->parameters['tmp_failed_directory'])) {
             return $this->parameters['tmp_failed_directory'];
 
         } else {
@@ -572,44 +616,73 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         $this->parameters['tmp_failed_directory'] = $tmp_failed_directory;
     }
 
-    public function isInFailedObjectList($pid) {
+    public function isInFailedObjectList($pid)
+    {
         return in_array($pid, $this->failed_object_list);
     }
 
-    public function addFailedObjectList($pid) {
+    public function addFailedObjectList($pid)
+    {
         $this->failed_object_list[] = $pid;
     }
 
-    public function getFailedObjectList() {
+    public function getFailedObjectList()
+    {
         return $this->failed_object_list;
     }
-    public function resetDownloadedObjectList() {
-        return$this->downloaded_object_list = array();
+
+    public function resetDownloadedObjectList()
+    {
+        return $this->downloaded_object_list = array();
     }
-    public function isInDownloadedObjectList($pid) {
+
+    public function isInDownloadedObjectList($pid)
+    {
         return array_key_exists($pid, $this->downloaded_object_list);
     }
-    public function removeFromDownloadedObjectList($pid) {
+
+    public function removeFromDownloadedObjectList($pid)
+    {
         unset($this->downloaded_object_list[$pid]);
     }
-    public function addDownloadedObjectList($pid, $filepath) {
-        if ($this->isInDownloadedObjectList($pid)) {
-            $this->downloaded_object_list[$pid][] = $filepath;
+
+    /**
+     * Download_object_list is an associative array with the pid as the key
+     * in order to group all files under an object id
+     *
+     * @param $object_id
+     * @param $filepath
+     */
+    public function addDownloadedObjectList($object_id, $filepath)
+    {
+        if ($this->isInDownloadedObjectList($object_id)) {
+            $this->downloaded_object_list[$object_id][] = $filepath;
         } else {
-            $this->downloaded_object_list[$pid] = array($filepath);
+            $this->downloaded_object_list[$object_id] = array($filepath);
         }
     }
 
-    public function getFlatDownloadedObjectList() {
+    public function getDownloadedObjectList()
+    {
+
+        return $this->downloaded_object_list;
+
+    }
+
+    public function getFlatDownloadedObjectList()
+    {
         $result = array();
-        array_walk_recursive($this->downloaded_object_list,function($v, $k) use (&$result){ $result[] = $v; });
+        array_walk_recursive($this->downloaded_object_list, function ($v, $k) use (&$result) {
+            $result[] = $v;
+        });
         return $result;
     }
 
 
-    public function verifyCreateDirectory($check_directory) {
-        if (! file_exists($check_directory)) {
-            if (! mkdir($check_directory, 0775, true)) {
+    public function verifyCreateDirectory($check_directory)
+    {
+        if (!file_exists($check_directory)) {
+            if (!mkdir($check_directory, 0775, true)) {
                 throw new ErrorException("Unable to create {$check_directory}");
             }
         }
@@ -663,15 +736,16 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         $this->digitalCommonsTransformBaseX = $digitalCommonsTransformBaseX;
     }
 
-    private function logmsg($message) {
+    private function logmsg($message)
+    {
 
         $date = date("Y-m-d h:m:s");
         $current_file = __FILE__;
-        $includes_dir =  pathinfo($current_file, PATHINFO_DIRNAME);
-        $toplevel_dir =  pathinfo($includes_dir, PATHINFO_DIRNAME);
+        $includes_dir = pathinfo($current_file, PATHINFO_DIRNAME);
+        $toplevel_dir = pathinfo($includes_dir, PATHINFO_DIRNAME);
         $logFile = $toplevel_dir . DIRECTORY_SEPARATOR . $this->batchProcessLogFileName;
 
-        $message = "[{$date}] [{$current_file}] ${message}".PHP_EOL;
+        $message = "[{$date}] [{$current_file}] ${message}" . PHP_EOL;
         return file_put_contents($logFile, $message, FILE_APPEND);
     }
 }

@@ -23,11 +23,13 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
     // Keys in objectInfo that are not to be datastreams.
     // Path to MODS->DC XSLT.
     public $modsToDcTransform = null;
+    // BATCH_OBJECT_PREFIX is used to group cached objects in drupal's cache.inc module
     public static $BATCH_OBJECT_PREFIX = "DigitalCommonsScanBatchObject";
     private $batchProcessLogFileName = "DigitalCommonsScanBatchObject.log";
     protected $dsLabelToURI = array();
     private $digitalCommonsFulltextURL = null;
 
+    private $supplementalFilenameToDatastream = array();
     /**
      * Constructor for the IslandoraScanBatchObject.
      */
@@ -52,6 +54,11 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
     }
     /**
      * Function batch_process.
+     *
+     * for most descendants, this function is the starting point for the batchProcessing after the object
+     * has been deserialized from the database. So, overwrite this if  you need a different workflow.
+     * please note that either ISLANDORA_BATCH_STATE__DONE or ISLANDORA_BATCH_STATE__ERROR should be returned
+     *
      */
     public function batchProcess()
     {
@@ -59,7 +66,7 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
             $log_message = " Batch Process Start. Series name: " . $this->getObjectInfo()->getDigitalCommonsSeries() .
                 " - DigitalCommonsObjectId: " . $this->getObjectInfo()->getDigitalCommonsObjectId() .
                 " - TRACE Id: " . $this->id ;
-            $this->logDigitalCommonsBatch($log_message);
+            $this->logDigitalCommonsBatch($log_message, __LINE__);
             // Use object_info to create some datastreams.
             $this->addDigitalCommonsXMLDatastream();
             $this->addModsDatastream();
@@ -74,7 +81,7 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
             $log_message = " Batch Process Completed. Series name: " . $this->getObjectInfo()->getDigitalCommonsSeries() .
                 " - DigitalCommonsObjectId: " . $this->getObjectInfo()->getDigitalCommonsObjectId() .
                 " - TRACE Id: " . $this->id ;
-            $this->logDigitalCommonsBatch($log_message);
+            $this->logDigitalCommonsBatch($log_message, __LINE__);
 
 
             $key =  DigitalCommonsScanBatchObject::$BATCH_OBJECT_PREFIX . $this->id;
@@ -119,80 +126,47 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
      */
     protected function addSupplementalModsFiles($modsSupplementaryFileMap)
     {
-        foreach ($modsSupplementaryFileMap as $suppl_file) {
+        // The Mods file is the definitive resource for supplemental file organization.
+        // The metadata.xml and the filesytem are subordinate to the information in the MODS record
+        // First read the MODS file mapping as taken from the MODS record
+        // attempt to find the corresponding file on the filesystem
+        // to determine the absolute URI
 
-            $suppl_file_num = null;
-            $underscore_Position = strpos($suppl_file->ds_name, '_');
-            if (isset($underscore_Position) && $underscore_Position > 0) {
-                $suppl_file_num = substr($suppl_file->ds_name, $underscore_Position + 1);
-            } else {
-                $suppl_file_string = print_r($suppl_file, true);
-                $exception = new Exception("Unable to determine supplemental file from $suppl_file_string");
-                throw $exception;
+        foreach ($modsSupplementaryFileMap as $suppl_file) {
+            $ds_name = $suppl_file->ds_name;
+            $ds_filename = $this->supplementalFilenameToDatastream[$ds_name];
+
+            $found_suppl = false;
+            foreach ($this->objectInfo->getFileArray() as $file_info) {
+
+                // The $file_info will have the file's FullName that is the name of the downloaded file on the filesystem
+                // The file_num is the number that corresponds to the integer that forms the prefix of the name of
+                // filesystem file
+
+                if ($file_info->getFullname() === $ds_filename && !$file_info->isProcessed()) {
+
+                    $dsTitle = $suppl_file->ds_title;
+                    $dsName = $suppl_file->ds_name;
+                    $dsMimetype = $suppl_file->mime_type;
+                    $this->logDigitalCommonsBatch("uploading $dsName $dsMimetype, $ds_filename", __LINE__);
+
+                    $this->addNewDatastreamFileInfo($dsName, $dsMimetype, $dsTitle, $file_info);
+                    $found_suppl = true;
+                    break;
+                }
             }
-            // our naming of the supplemental DS Name using an origin index of 1
-            // while the name of the filesystem files using an origin index of 0
-            $suppl_file_num = $suppl_file_num - 1;
-            $this->logDigitalCommonsBatch("suppl number = $suppl_file_num");
-            if (isset($suppl_file_num)) {
-                $found_suppl = false;
-                foreach ($this->objectInfo->getFileArray() as $file_info) {
-                    $file_info_string = print_r($file_info, true);
-                    $this->logDigitalCommonsBatch($file_info_string);
-                    if (preg_match("/^${suppl_file_num}\-(.+)$/", $file_info->getFilename(), $supplFileInfoMatch) && !$file_info->isProcessed()) {
-                        $canonicalSupplFileName = $supplFileInfoMatch[1];
-                        $this->logDigitalCommonsBatch("$suppl_file->ds_title === $canonicalSupplFileName");
-                        if ($suppl_file->ds_title === $canonicalSupplFileName) {
-                            $dsName = $suppl_file->ds_name;
-                            $dsMimetype = $suppl_file->mime_type;
-                            $this->logDigitalCommonsBatch("uploading $dsName $dsMimetype, $canonicalSupplFileName");
-                            $this->addNewDatastreamFileInfo($dsName, $dsMimetype, $canonicalSupplFileName, $file_info);
-                            $found_suppl = true;
-                            break;
-                        }
-                    }
-                }
-                if (! $found_suppl) {
-                    $suppl_file_string = print_r($suppl_file, true);
-                    $exception = new Exception("Unable to determine supplemental file number from $suppl_file_string");
-                    throw $exception;
-                }
-            } else {
+            if (! $found_suppl) {
                 $suppl_file_string = print_r($suppl_file, true);
                 $exception = new Exception("Unable to determine supplemental file number from $suppl_file_string");
                 throw $exception;
             }
         }
-        /*       // get a list of files that conform to the supplementary file pattern
-               // that have been found in the zip/filesystem path
-               foreach ($this->objectInfo->getFileArray() as $file_info) {
-                   // supplemental files will begin with digits
-                   // these digits need to be stripped off in order to conform
-                   // to the files listed in the mods record
-                   $file_info_string = print_r($file_info, true);
-                   $this->logDigitalCommonsBatch($file_info_string);
-                   $supplFileInfoMatch = array();
-
-                   if (preg_match("/^\d+\-(.+)$/", $file_info->getFilename(), $supplFileInfoMatch) && !$file_info->isProcessed()) {
-                       $canonicalSupplFileName = $supplFileInfoMatch[1];
-                       $this->logDigitalCommonsBatch($canonicalSupplFileName);
-                       if (! isset($modsSupplementaryFileMap[$canonicalSupplFileName]) && isset($modsSupplementaryFileMap[$file_info->getFilename()])) {
-                           $canonicalSupplFileName =$file_info->getFilename();
-                       }
-                       if (isset($modsSupplementaryFileMap[$canonicalSupplFileName])) {
-                           // add the stream and mark it as done, increment suppl_index to a higher value
-                           // if the next suppl is higher than the current suppl_index
-
-                           $dsName = $modsSupplementaryFileMap[$canonicalSupplFileName]->ds_name;
-                           $dsMimetype = $modsSupplementaryFileMap[$canonicalSupplFileName]->mime_type;
-                           $this->logDigitalCommonsBatch($dsName);
-                           $this->addNewDatastreamFileInfo($dsName, $dsMimetype, $canonicalSupplFileName, $file_info);
-                       }
-                   }
-               } */
     }
 
     /*
+     * The Mods file is the definitive resource for supplemental file organization.
+     * The metadata.xml and the filesytem are subordinate to the information in the MODS record
+     *
      * parse the Mods file for information about Supplementary Files
      * The results should be an Associative Array or Map
      * of key value pairs.
@@ -214,28 +188,35 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
         foreach ($mods_related_items as $related_item) {
             $related_item_title_info_list = $related_item->getElementsByTagName('titleInfo');
             if ($related_item_title_info_list->length != 1) {
-                $this->printWarningMessage( "mods xml has more than one titleInfo for a related item");
+                $this->printWarningMessage( "mods xml has more than one titleInfo for a related item", __LINE__);
                 continue;
             }
             $related_item_title_info_node = $related_item_title_info_list->item(0);
             $related_item_title_list = $related_item_title_info_node->getElementsByTagName('title');
             if ($related_item_title_list->length != 1) {
 
-                $this->printWarningMessage("The mods xml has more than one title for a related item");
+                $this->printWarningMessage("The mods xml has more than one title for a related item", __LINE__);
                 continue;
             }
             $title_node_node = $related_item_title_list->item(0);
             $item_title = $title_node_node->textContent;
-
+            $item_title = html_entity_decode ($item_title);
+            $item_title = strip_tags($item_title);
+            $encoding = mb_detect_encoding($item_title);
+            if ($encoding === "UTF-8") {
+                $item_title = utf8_decode( $item_title);
+            } else if ($encoding !== "ISO-8859-1") {
+                $item_title =  mb_convert_encoding($item_title, 'ISO-8859-1');
+            }
             $physical_description_list = $related_item->getElementsByTagName('physicalDescription');
             if ($physical_description_list->length != 1) {
-                $this->printWarningMessage("The mods xml has more than one physicalDescription for a related item");
+                $this->printWarningMessage("The mods xml has more than one physicalDescription for a related item", __LINE__);
                 continue;
             }
             $physical_description_node = $physical_description_list->item(0);
             $internet_media_type_list = $physical_description_node->getElementsByTagName('internetMediaType');
             if ($internet_media_type_list->length != 1) {
-                $this->printWarningMessage("The mods xml has more than one internetMediaType for a related item");
+                $this->printWarningMessage("The mods xml has more than one internetMediaType for a related item", __LINE__);
                 continue;
             }
             $internet_media_type_node = $internet_media_type_list->item(0);
@@ -260,6 +241,7 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
                 $modsSupplementalFile->mime_type = $item_mime_type;
                 $modsSupplementalFile->ds_title = $modsSupplementalFile;
                 $missingDSNameSupplementalFiles[] = $modsSupplementalFile;
+                $this->printWarningMessage("The mods xml has does not have a Suppl File DataStream name and is not ordered", __LINE__);
             }
         }
 
@@ -272,6 +254,8 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
      * iterate through all the files that conform to the pattern
      * for supplemental files
      * Add them as datastreams
+     *
+     * Not needed, there is no way we are able to retrieve correspondences now, but if they ever become available...
      */
     protected function addCorrespondence()
     {
@@ -282,9 +266,9 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
             // supplemental files will begin with digits
             // these digits need to be stripped off in order to conform
             // to the files listed in the mods record
-            $filename= $file_info->getFilename();
+            $filename= $file_info->getFullname();
 
-            if (preg_match("/^decision\-\d+\.txt$/", $file_info->getFilename()) && !$file_info->isProcessed()) {
+            if (preg_match("/^decision\-\d+\.txt$/", $file_info->getFullname()) && !$file_info->isProcessed()) {
 
                 $correspondence = file_get_contents($file_info->getUri());
                 $messages.= $this->constructEmail($correspondence);
@@ -309,26 +293,147 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
         }
         return $returnFileInfo;
     }
+    protected function retrieveThesisCModelDocumentFileInfo()
+    {
+        $returnFileInfo = null;
+        $returnFileInfoList = array();
+        foreach ($this->objectInfo->getFileArray() as $file_info) {
+            $file_fullname = $file_info->getFullName();
+            $is_processed = $file_info->isProcessed();
+            $is_processed = is_null($is_processed) ? FALSE : $is_processed;
+            $this->logDigitalCommonsBatch("File Full Name to Match Content Model: {$file_fullname} and is processed? " . $is_processed ? 'true' : 'false', __LINE__);
+            if ( preg_match('/.+\.pdf$/', $file_fullname) && ! preg_match('/^\d{1,3}\-.+/', $file_fullname) && ! $file_info->isProcessed() )  {
+                $returnFileInfoList[] = $file_info;
+            }
+        }
+        $sizeOfFileInfoList = count($returnFileInfoList);
+        if ($sizeOfFileInfoList > 1) {
+            // here is a conflict
+            // note it in the log file and go on
+            $returnFileInfo = $returnFileInfoList[0];
 
+        }
+        if ( $sizeOfFileInfoList == 1) {
+            $returnFileInfo = $returnFileInfoList[0];
+        }
+        return $returnFileInfo;
+    }
+
+    protected function retrieveCitationCModelDocumentFileInfo()
+    {
+        $returnFileInfo = null;
+        $returnFileInfoList = array();
+        foreach ($this->objectInfo->getFileArray() as $file_info) {
+            $file_fullname = $file_info->getFullName();
+            $this->logDigitalCommonsBatch("File Full Name to Match Content Model: {$file_fullname}", __LINE__);
+            if ( preg_match('/.+\.pdf$/', $file_fullname) && ! preg_match('/^\d{1,3}\-.+/', $file_fullname) && ! $file_info->isProcessed() )  {
+                $returnFileInfoList[] = $file_info;
+            }
+        }
+        $sizeOfFileInfoList = count($returnFileInfoList);
+        if ($sizeOfFileInfoList > 1) {
+            // here is a conflict
+            // note it in the log file and go on
+            $returnFileInfo = $returnFileInfoList[0];
+
+        }
+        if ( $sizeOfFileInfoList == 1) {
+            $returnFileInfo = $returnFileInfoList[0];
+        }
+        return $returnFileInfo;
+    }
+    protected function retrieveBinaryObjectCModelOBJFileInfo()
+    {
+        $returnFileInfo = null;
+        $returnFileInfoList = array();
+        foreach ($this->objectInfo->getFileArray() as $file_info) {
+            $file_fullname = $file_info->getFullName();
+            if (! preg_match('/^\d{1,3}\-.+/', $file_fullname) && ! $file_info->isProcessed() )  {
+                $returnFileInfoList[] = $file_info;
+            }
+        }
+        $sizeOfFileInfoList = count($returnFileInfoList);
+        if ($sizeOfFileInfoList > 1) {
+            // here is a conflict, because two files match the name of the file as listed by MODS
+            // take the list and send it to conflict resolution
+            $returnFileInfo = $returnFileInfoList[0];
+        }
+        if ( $sizeOfFileInfoList == 1) {
+            $returnFileInfo = $returnFileInfoList[0];
+        }
+        return $returnFileInfo;
+    }
     /**
      * Function to get the Digital Commons metadata document
      * it is always named metadata.xml.
      *
      */
-    protected function addPrimaryDocument()
+    protected function addThesisCModelDocument()
     {
 
-        $thesis_file_info = $this->retrieveFileInfoFromName('fulltext');
+        $thesis_file_info = $this->retrieveThesisCModelDocumentFileInfo();
 
-        if (!isset($thesis_file_info)) {
-            $this->printWarningMessage("Does not have a fulltext file!");
+        if (isset($thesis_file_info)) {
 
-        } else {
             if (!$thesis_file_info->isProcessed()) {
                 $this->addNewDatastreamFileInfo('PDF', 'application/pdf', $this->objectInfo->getTitle(), $thesis_file_info);
+                $this->setFileInfoProcessed($thesis_file_info);
+            }
+        } else {
+            $this->printWarningMessage("Does not have a ThesisCModel fileinfo for Primary Document!", __LINE__);
+            return FALSE;
+        }
+        return $thesis_file_info->isProcessed();
+    }
+
+    protected function addCitationBinaryObjectCModelDocument() {
+        if (! $this->addCitationDocument()) {
+            if (! $this->addBinaryObjectCModelOBJDocument()) {
+                throw new Exception("The Primary Document file cannot be found");
             }
         }
     }
+    /**
+     * Function to get the Digital Commons metadata document
+     * it is always named metadata.xml.
+     *
+     */
+    protected function addCitationDocument()
+    {
+        $file_info = $this->retrieveCitationCModelDocumentFileInfo();
+
+        if (isset($file_info)) {
+            if (!$file_info->isProcessed()) {
+                $this->addNewDatastreamFileInfo('PDF', 'application/pdf', $this->objectInfo->getTitle(), $file_info);
+                $this->setFileInfoProcessed($file_info);
+            }
+        }
+        return $file_info->isProcessed();
+    }
+    /**
+     * Function to get the Digital Commons metadata document
+     * it is always named metadata.xml.
+     *
+     */
+    protected function addBinaryObjectCModelOBJDocument()
+    {
+        $file_info = $this->retrieveBinaryObjectCModelOBJFileInfo();
+
+        if (isset($file_info)) {
+            if (!$file_info->isProcessed()) {
+
+                $file = new stdClass();
+                $file->uri = $file_info->getUri();
+                $file->filename = $file_info->getFullname();
+                $file->name = $file_info->getName();
+                $mime_type = mimedetect_mime($file);
+                $this->addNewDatastreamFileInfo('OBJ', $mime_type, $this->objectInfo->getTitle(), $file_info);
+                $this->setFileInfoProcessed($file_info);
+            }
+        }
+        return $file_info->isProcessed();
+    }
+
 
     protected function addNewDatastreamFileInfo($dsName, $dsMimetype, $dsLabel, $file_info)
     {
@@ -340,10 +445,10 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
         $datastream->state = "A";
         $datastream->setContentFromFile($file_info->getUri());
         if (!isset($datastream->content)) {
-            $this->printWarningMessage($file_info->getUri() . " Unable to read content!");
+            $this->printWarningMessage($file_info->getUri() . " Unable to read content!", __LINE__);
         } else {
             $this->ingestDatastream($datastream);
-            $file_info->setProcessed(TRUE);
+            $this->setFileInfoProcessed($file_info);
         }
     }
 
@@ -359,7 +464,7 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
 
         $this->ingestDatastream($datastream);
         if (isset($file_info)) {
-            $file_info->setProcessed(TRUE);
+            $this->setFileInfoProcessed($file_info);
         }
     }
 
@@ -376,7 +481,7 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
 
 
         if (!isset($digital_commons_xml_file_info)) {
-            $this->printWarningMessage("Does not have a digital commons metadata file!");
+            $this->printWarningMessage("Does not have a digital commons metadata file!", __LINE__);
         } else {
             $digital_commons_xml = file_get_contents($digital_commons_xml_file_info->getUri());
             $this->objectInfo->setDigitalCommonsMetadata($digital_commons_xml);
@@ -388,7 +493,7 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
     {
         $digital_commons_xml_file_info = $this->retrieveFileInfoFromName('metadata');
         if (!isset($digital_commons_xml_file_info)) {
-            $this->printWarningMessage("Does not have a digital commons metadata file!");
+            $this->printWarningMessage("Does not have a digital commons metadata file!", __LINE__);
         } else {
             $digital_commons_xml = file_get_contents($digital_commons_xml_file_info->getUri());
             $digital_commons_document_type = null;
@@ -402,17 +507,23 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
                     $digital_commons_document_type = $document_type_node->nodeValue;
                 }
             } else {
-                $exception = $this->getFormattedException("Does not have a metadata.xml file!");
+                $exception = $this->getFormattedException("Does not have a metadata.xml file!", __LINE__);
                 throw $exception;
             }
             $this->objectInfo->setDigitalCommonsDocumentType($digital_commons_document_type);
         }
     }
+
+    /**
+     * load the xml from the metadata.xml file into a DOM and parse the DOM for significant properties of this object
+     *
+     * @throws Exception
+     */
     protected function parseDigitalCommonsFulltextURL()
     {
         $digital_commons_xml_file_info = $this->retrieveFileInfoFromName('metadata');
         if (!isset($digital_commons_xml_file_info)) {
-            $this->printWarningMessage("Does not have a digital commons metadata file!");
+            $this->printWarningMessage("Does not have a digital commons metadata file!", __LINE__);
         } else {
             $digital_commons_xml = file_get_contents($digital_commons_xml_file_info->getUri());
             $digital_commons_fulltext_url = null;
@@ -426,12 +537,13 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
                     $digital_commons_fulltext_url = $document_type_node->nodeValue;
                 }
             } else {
-                $exception = $this->getFormattedException("Does not have a metadata.xml file!");
+                $exception = $this->getFormattedException("Does not have a metadata.xml file!", __LINE__);
                 throw $exception;
             }
             $this->setFulltextURL($digital_commons_fulltext_url);
         }
     }
+
     /**
      * Function to get the mods.
      *
@@ -444,7 +556,7 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
     {
         $mods_file_info = $this->retrieveFileInfoFromName('MODS');
         if (!isset($mods_file_info)) {
-            $this->printWarningMessage("Does not have a MODS metadata file!");
+            $this->printWarningMessage("Does not have a MODS metadata file!", __LINE__);
         } else {
             $this->setModsLocalIdentifier();
             $mods_content = $this->getModsXML();
@@ -500,7 +612,7 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
 
         } else {
             //throw an error?
-            $exception = $this->getFormattedException("Unable to retrieve a MODS document model (DOM)!");
+            $exception = $this->getFormattedException("Unable to retrieve a MODS document model (DOM)!", __LINE__);
             throw $exception;
         }
 
@@ -527,6 +639,14 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
                 $mods_title = $mods_xpath->evaluate('string(//m:mods/m:titleInfo/m:title/text())');
                 // Assign the label of the object based on the full title;
                 $mods_title = strip_tags($mods_title);
+                $encoding = mb_detect_encoding($mods_title);
+                if ($encoding === "UTF-8") {
+                    $mods_title = utf8_decode( $mods_title);
+                } else if ($encoding !== "ISO-8859-1") {
+                    $mods_title =  mb_convert_encoding($mods_title, 'ISO-8859-1');
+                }
+                $this->logDigitalCommonsBatch("title encoding is " . $encoding);
+
                 $this->objectInfo->setTitle($mods_title);
 
             } else {
@@ -626,26 +746,28 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
                     // run through the supplemental files first to exclude
                     // possibilities for discovering the primary document
                     $this->addSupplementalFiles();
-                    $this->addPrimaryDocument();
-
+                    $this->addThesisCModelDocument();
+                    break 2;
 //                    $this->addCorrespondence();
                 }
-                case "ir:citationCModel": {
+                case "ir:citationCModel":
+                case "islandora:binaryObjectCModel" : {
+                    $this->addSupplementalFiles();
+                    $this->addCitationBinaryObjectCModelDocument();
 
+                    break 2;
                 }
-                case "islandora:sp_large_image_cmodel";
-                    /*
-                        cModel is large image and the main dsid for delivery is JP2
-                              The obj is typically a TIFF */
-                case "islandora:bookCModel";
-                case "islandora:compoundCModel";
-                case "islandora:collectionCModel";
-                case "islandora:sp-audioCModel";
-                case "islandora:transformCModel";
-                case "islandora:sp_videoCModel";
+/*                case "islandora:sp_large_image_cmodel" :
+                case "islandora:bookCModel" :
+                case "islandora:compoundCModel" :
+                case "islandora:collectionCModel" :
+                case "islandora:sp-audioCModel" :
+                case "islandora:transformCModel" :
+                case "islandora:sp_videoCModel" :
                 default: {
 
                 }
+ */
             }
         }
     }
@@ -664,17 +786,21 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
         $correlations=array();
         $content_models = array_keys($this->objectInfo->getContentModels());
         foreach ($content_models as $content_model) {
+            // the below regular expressions may not work
             switch ($content_model) {
                 case "ir:thesisCModel": {
                     $correlations[] = array('PDF' => '^(\w+|\d+\_\w+.pdf+$');
+
+                    break;
                 }
                 case "ir:citationCModel": {
-
+                    $correlations[] = array('PDF' => '^(\w+|\d+\_\w+.pdf+$');
+                    break;
                 }
-                case "islandora:sp_large_image_cmodel";
-                    /*
-                        cModel is large image and the main dsid for delivery is JP2
-                              The obj is typically a TIFF */
+                case "islandora:binaryObjectCModel" : {
+                    $correlations[] = array('OBJ' => '^(\w+|\d+\_\w+.+$');
+                }
+/*                case "islandora:sp_large_image_cmodel";
                 case "islandora:bookCModel";
                 case "islandora:compoundCModel";
                 case "islandora:collectionCModel";
@@ -684,6 +810,7 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
                 default: {
 
                 }
+*/
             }
         }
         return $correlations;
@@ -740,6 +867,7 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
         $content_models = array_keys($this->objectInfo->getContentModels());
         foreach ($content_models as $content_model) {
             switch ($content_model) {
+                // the below regular expressions may not work
                 case "ir:thesisCModel": {
                     // For example, (?<!foo)bar does find an occurrence of "bar" that is not preceded by "foo".
                     // We want any file that ends with .pdf but does not begin with between 1 and 3 digits followed
@@ -747,7 +875,7 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
                     $correlations[] = array('PDF' => '^(?<![0-9]{1,3}\-).*\.pdf+$');
                 }
                 case "ir:citationCModel": {
-
+                    $correlations[] = array('PDF' => '^(?<![0-9]{1,3}\-).*\.pdf+$');
                 }
                 case "islandora:sp_large_image_cmodel";
                     /*
@@ -804,6 +932,11 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
 </mods>
 EOXML;
             }
+
+            $modsXML = $this->buildSupplMapRemoveDOMNotes($mods_xml);
+            if ($modsXML) {
+                $mods_xml = $modsXML;
+            }
             $this->objectInfo->setModsXml($mods_xml);
 
         }
@@ -816,6 +949,56 @@ EOXML;
         $dsLabel = array_slice(preg_split('/[\W]+/', $dsLabel, 6), 0, 5);
         $dsLabel = trim(join("_", $dsLabel), "_");
         return $dsLabel;
+    }
+    protected function buildSupplMapRemoveDOMNotes($modsXML) {
+        $modsDOM = new DOMDocument();
+        $modsDOM->loadXML($modsXML);
+        $modsRootNode = $modsDOM->documentElement;
+        $toplevelChildren = $modsRootNode->childNodes;
+        $children_count = $toplevelChildren->count();
+        $last_index = $children_count -1;
+        for ($i = $last_index; $children_count > 0; --$children_count) {
+            $childNode = $toplevelChildren->item($i);
+            if ( $childNode->nodeType == XML_ELEMENT_NODE && $childNode->nodeName === 'relatedItem' &&
+                ($childNode->attributes->getNamedItem('type') === 'constituent') ) {
+                $relatedItemChildren = $childNode->getElementsByTagName('note');
+                $noteNodeListCount = $relatedItemChildren->count();
+                if ($noteNodeListCount == 2) {
+                    // the key is the supplemental datastream name assigned in the MODS.
+                    $key = null;
+                    $value = null;
+                    $removeNode = null;
+                    //
+                    // displayLabel="supplemental_file"
+
+                    for ($j = 0; $j < $noteNodeListCount; $j++) {
+                        if ($relatedItemChildren->item($j)->getAttribute()->name === 'displayLabel' && $relatedItemChildren->item($j)->getAttribute()->value === 'supplemental_file') {
+                            $key = $relatedItemChildren->item($j)->nodeValue;
+                        }
+                        if ($relatedItemChildren->item($j)->getAttribute()->name === 'displayLabel' && $relatedItemChildren->item($j)->getAttribute()->value === 'supplemental_filename') {
+                            $value = $relatedItemChildren->item($j)->nodeValue;
+                            $removeNode = $relatedItemChildren->item($j);
+                        }
+                    }
+                    if (isset($key) && isset($value)) {
+                        $this->supplementalFilenameToDatastream[$key] = $value;
+                    } else {
+                        $exception = $this->getFormattedException("Unable to find 2 note attribute displayLabel on a constituent note node, one with a value of supplemental_file and the other with a value of supplemental_filename.", __LINE__);
+                        throw $exception;
+                    }
+                    if (isset($removeNode)) {
+                        $childNode->removeChild($removeNode);
+                    } else {
+                        $exception = $this->getFormattedException("Unable to find a note node to remove.", __LINE__);
+                        throw $exception;
+                    }
+                } else {
+                    $exception = $this->getFormattedException("Unable to find 2 note elements on a constituent note node! Instead found " . $noteNodeListCount, __LINE__);
+                    throw $exception;
+                }
+            }
+        }
+        return $modsDOM->saveXML();
     }
     /**
      * Function to get dc.
@@ -903,18 +1086,39 @@ EOXML;
         $contructedEmail.= "$correspondence \n";
         return $contructedEmail;
     }
-    protected function getFormattedException($comment ) {
-        return new Exception("Series name: " . $this->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " .$comment);
+    protected function getFormattedException($comment, $line_number = 'N/A' ) {
+
+        return new Exception($this->getLogFormattedPreamble($line_number)  .$comment);
 
     }
+    private function logmsg($message, $line_number = 'N/A') {
+        $date = date(DATE_W3C);
+        $current_file = __FILE__;
 
-    protected function printWarningMessage($comment ) {
-        $message = t(date(DATE_ATOM) ." Series name: " . $this->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " . $comment);
-        $this->logmsg($message);
-        \drupal_set_message($message, 'warning');
-        \watchdog('islandora_scan_batch_ditigal_commons', $message, null, WATCHDOG_WARNING);
+        $includes_dir =  pathinfo($current_file, PATHINFO_DIRNAME);
+        $toplevel_dir =  pathinfo($includes_dir, PATHINFO_DIRNAME);
+        $logFile = $toplevel_dir . DIRECTORY_SEPARATOR . $this->batchProcessLogFileName;
+
+        $format_message = $this->getLogFormattedPreamble($line_number) . "${message}".PHP_EOL;
+        return file_put_contents($logFile, $format_message, FILE_APPEND);
     }
 
+    public function logDigitalCommonsBatch($message, $line_number = 'N/A') {
+        $this->logmsg($message, $line_number);
+    }
+    protected function printWarningMessage($message,$line_number = 'N/A') {
+        $this->logmsg($message, $line_number);
+        $format_message = $this->getLogFormattedPreamble($line_number) . $message;
+
+
+        \drupal_set_message($format_message, 'warning');
+        \watchdog('islandora_scan_batch_ditigal_commons', $format_message, null, WATCHDOG_WARNING);
+    }
+
+    private function getLogFormattedPreamble($line_number) {
+        $date = date(DATE_W3C);
+        return t("[{$date}] [" . __FILE__ . "] [$line_number] Series name: " . $this->objectInfo->getDigitalCommonsSeries() . " - DigitalCommonsObjectId: " . $this->objectInfo->getDigitalCommonsObjectId() . " - " );
+    }
     /*
      * correlate the content model to datastreams found on the object that should be embargoed
     */
@@ -967,28 +1171,30 @@ EOXML;
             // supplemental files will begin with digits
             // these digits need to be stripped off in order to conform
             // to the files listed in the mods record
-            $filename = $file_info->getFilename();
+            $filename = $file_info->getFullname();
             if (preg_match("/{$pattern}/", $filename)) {
                 $supplFileInfoMatch[] = $file_info->getUri();
             }
         }
         return $supplFileInfoMatch;
     }
-    private function logmsg($message) {
 
-        $date = date("Y-m-d h:m:s");
-        $current_file = __FILE__;
-        $includes_dir =  pathinfo($current_file, PATHINFO_DIRNAME);
-        $toplevel_dir =  pathinfo($includes_dir, PATHINFO_DIRNAME);
-        $logFile = $toplevel_dir . DIRECTORY_SEPARATOR . $this->batchProcessLogFileName;
-
-        $message = "[{$date}] [{$current_file}] ${message}".PHP_EOL;
-        return file_put_contents($logFile, $message, FILE_APPEND);
+    private function setFileInfoProcessed($file_info) {
+        // get to the corresponding file_info in the object structure and set it to processed.
+        $file_info->setProcessed(TRUE);
+        $number_of_files = count($this->objectInfo->getFileArray());
+        for ($i = 0; $i < $number_of_files; ++$i) {
+            $iterate_file_info = $this->objectInfo->getFileArray()[$i];
+            if ($iterate_file_info->getURI() === $file_info->getURI()) {
+                if (! $this->objectInfo->getFileArray()[$i]->isProcessed()) {
+                    $this->logDigitalCommonsBatch("having to set processed when it should already be set", __LINE__);
+                    $this->objectInfo->getFileArray()[$i]->setProcessed(TRUE);
+                }
+            }
+        }
     }
 
-    public function logDigitalCommonsBatch($message) {
-        $this->logmsg($message);
-    }
+
 
     /**
      * @return null

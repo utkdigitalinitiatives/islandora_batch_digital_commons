@@ -30,7 +30,7 @@ class DigitalCommonsScanBatchFactory
         module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsFileInfo');
         module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsObjectInfo');
 
-        module_load_include('php','islandora_batch_digital_commons','includes/IslandoraBatchFedoraObjectModelCache');
+        module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsFedoraObjectModelCache');
         module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchFactory');
 
         module_load_include('php','islandora_batch_digital_commons','includes/DigitalCommonsScanBatchObject');

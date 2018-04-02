@@ -42,7 +42,7 @@ class DigitalCommonsFileInfo {
             return $this->uri;
         }
 
-        public function getFilename() {
+        public function getFullname() {
             return $this->filename;
         }
 
@@ -67,7 +67,7 @@ class DigitalCommonsFileInfo {
             $this->uri = $uri;
         }
 
-        public function setFilename($filename) {
+        public function setFullname($filename) {
             $this->filename = $filename;
         }
 

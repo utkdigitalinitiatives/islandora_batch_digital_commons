@@ -157,7 +157,7 @@ class DigitalCommonsScanBatchBase extends IslandoraScanBatch
 
             foreach ($fileStorage as $storedFile) {
 
-                if ($storedFile->filename == "metadata.xml") {
+                if ($storedFile->fullname == "metadata.xml") {
                     $digitalCommonsMetadata = $storedFile;
 
                     break;
@@ -292,7 +292,7 @@ class DigitalCommonsScanBatchBase extends IslandoraScanBatch
     private function buildDigitalCommonsFileInfo($file) {
         $file_object = new DigitalCommonsFileInfo();
         $file_object->setUri($file->uri);
-        $file_object->setFilename($file->filename);
+        $file_object->setFullname($file->fullname);
         $file_object->setName($file->name);
         $file_object->setExt(pathinfo($file->uri, PATHINFO_EXTENSION));
         return $file_object;

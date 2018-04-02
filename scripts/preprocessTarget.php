@@ -270,7 +270,6 @@ $xml->loadXML($xw->outputMemory());
 $xpath = new DOMXPath($xml);
 foreach ($failed_objectid as $failedid) {
 	$nodes = $xpath->query("//doc[@*[contains(.,'/{$failedid}/')]]");
-	print_r($nodes);
 	if (isset($nodes) && $nodes->length > 0) {
 		logmsg($print_r($nodes, true));
 		$xml->removeChild($nodes);
