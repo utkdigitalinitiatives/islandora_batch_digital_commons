@@ -30,6 +30,10 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
     private $digitalCommonsFulltextURL = null;
 
     private $supplementalFilenameToDatastream = array();
+
+
+    private $contentModelsToRemove = array('islandora:collectionCModel');
+
     /**
      * Constructor for the IslandoraScanBatchObject.
      */
@@ -310,7 +314,8 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
         if ($sizeOfFileInfoList > 1) {
             // here is a conflict
             // note it in the log file and go on
-            $returnFileInfo = $returnFileInfoList[0];
+            $exception = $this->getFormattedException("Found more than 1 PDF for thesis cModel. Count:  " . $sizeOfFileInfoList, __LINE__);
+            throw $exception;
 
         }
         if ( $sizeOfFileInfoList == 1) {
@@ -326,7 +331,7 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
         foreach ($this->objectInfo->getFileArray() as $file_info) {
             $file_fullname = $file_info->getFullName();
             $this->logDigitalCommonsBatch("File Full Name to Match Content Model: {$file_fullname}", __LINE__);
-            if ( preg_match('/.+\.pdf$/', $file_fullname) && ! preg_match('/^\d{1,3}\-.+/', $file_fullname) && ! $file_info->isProcessed() )  {
+            if (  preg_match('/.+\.pdf$/', $file_fullname) &&  ! preg_match('/^\d{1,3}\-.+/', $file_fullname) && ! $file_info->isProcessed() )  {
                 $returnFileInfoList[] = $file_info;
             }
         }
@@ -334,7 +339,8 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
         if ($sizeOfFileInfoList > 1) {
             // here is a conflict
             // note it in the log file and go on
-            $returnFileInfo = $returnFileInfoList[0];
+            $exception = $this->getFormattedException("Found more than 1 PDF for citation cModel. Count:  " . $sizeOfFileInfoList, __LINE__);
+            throw $exception;
 
         }
         if ( $sizeOfFileInfoList == 1) {
@@ -356,7 +362,8 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
         if ($sizeOfFileInfoList > 1) {
             // here is a conflict, because two files match the name of the file as listed by MODS
             // take the list and send it to conflict resolution
-            $returnFileInfo = $returnFileInfoList[0];
+            $exception = $this->getFormattedException("Found more than 1 FILE for binary cModel. Count:  " . $sizeOfFileInfoList, __LINE__);
+            throw $exception;
         }
         if ( $sizeOfFileInfoList == 1) {
             $returnFileInfo = $returnFileInfoList[0];
@@ -405,10 +412,17 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
         if (isset($file_info)) {
             if (!$file_info->isProcessed()) {
                 $this->addNewDatastreamFileInfo('PDF', 'application/pdf', $this->objectInfo->getTitle(), $file_info);
+                // Object models are found at the parent collection model level and applied at the object that resides in the collection
+                // we only have 3 Object Models to deal with, in this instance, we only want a citation model applied to the object
+                // therefore, specifically exclude binary object model
+                $this->addExcludedContentModels("islandora:binaryObjectCModel");
                 $this->setFileInfoProcessed($file_info);
             }
+        } else {
+            return FALSE;
         }
-        return $file_info->isProcessed();
+        $return = $file_info->isProcessed();
+        return  $return ;
     }
     /**
      * Function to get the Digital Commons metadata document
@@ -426,10 +440,16 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
                 $file->uri = $file_info->getUri();
                 $file->filename = $file_info->getFullname();
                 $file->name = $file_info->getName();
-                $mime_type = mimedetect_mime($file);
+                $mime_type = mime_content_type($file->uri);
                 $this->addNewDatastreamFileInfo('OBJ', $mime_type, $this->objectInfo->getTitle(), $file_info);
+                // Object models are found at the parent collection model level and applied at the object that resides in the collection
+                // we only have 3 Object Models to deal with, in this instance, we only want a binary model applied to the object
+                // therefore, specifically exclude citation object model
+                $this->addExcludedContentModels("ir:citationCModel");
                 $this->setFileInfoProcessed($file_info);
             }
+        } else {
+            return FALSE;
         }
         return $file_info->isProcessed();
     }
@@ -747,14 +767,14 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
                     // possibilities for discovering the primary document
                     $this->addSupplementalFiles();
                     $this->addThesisCModelDocument();
+//                  $this->addCorrespondence();
                     break 2;
-//                    $this->addCorrespondence();
+
                 }
                 case "ir:citationCModel":
                 case "islandora:binaryObjectCModel" : {
                     $this->addSupplementalFiles();
                     $this->addCitationBinaryObjectCModelDocument();
-
                     break 2;
                 }
 /*                case "islandora:sp_large_image_cmodel" :
@@ -1080,7 +1100,8 @@ EOXML;
     protected function addContentModelRelationships() {
         $content_models = array_keys($this->objectInfo->getContentModels());
         // remove the collectionCModel, and maybe some othere?
-        $this->models = array_diff($content_models, array('islandora:collectionCModel'));
+        $excludedModelsLlist = $this->getExcludedContentModels();
+        $this->models = array_diff($content_models, $excludedModelsLlist);
     }
     protected function constructEmail($correspondence) {
         $ownermail = $this->getModsOwner();
@@ -1200,8 +1221,12 @@ EOXML;
         }
     }
 
-
-
+    public function getExcludedContentModels() {
+        return $this->contentModelsToRemove;
+    }
+    public function addExcludedContentModels($exclusion) {
+        $this->contentModelsToRemove[] = $exclusion;
+    }
     /**
      * @return null
      */

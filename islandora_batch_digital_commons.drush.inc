@@ -185,10 +185,10 @@ function drush_islandora_batch_digital_commons_scan_preprocess()
             $preprocessed = islandora_batch_digital_commons_handle_preprocessor($preprocessor);
             drush_log(t("SetId: @s", array('@s' => $preprocessor->getSetId())), "ok");
         } catch (Exception $e) {
-            drupal_set_message(t('Error Processing Islandora collection objects from (PID %p).',
-                array('%p' => $parameters['collection_pid'])), 'error');
-            watchdog('islandora_batch_digital_commons', 'Error Processing Islandora collection objects from (PID %p).',
-                array('%p' => $parameters['collection_pid']), WATCHDOG_ERROR);
+            drupal_set_message(t('Error Processing Islandora collection objects from (PID %p). %m',
+                array('%p' => $parameters['collection_pid'], '%m' => $e->getMessage())), 'error');
+            watchdog('islandora_batch_digital_commons', 'Error Processing Islandora collection objects from (PID %p). %m',
+                array('%p' => $parameters['collection_pid'], '%m' => $e->getMessage()), WATCHDOG_ERROR);
         }
     }
 

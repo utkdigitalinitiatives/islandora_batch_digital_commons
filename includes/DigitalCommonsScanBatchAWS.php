@@ -72,7 +72,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
 
     protected $master_catalog_fullpath = null;
     protected $digitalCommonsTransformBaseX = null;
-    protected $batchProcessLogFileName = "DigitalCommonsScanBatchAWS.log";
+
 
     /**
      * Constructor must be able to receive an associative array of parameters.
@@ -175,7 +175,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
      * @param $filepath
      * @return bool
      */
-    public function canStopFileProcessing($filepath)
+    public function canStopProcessingFilter($filepath)
     {
 
 
@@ -191,12 +191,16 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                     $return = true;
                     break;
                 }
+
+/*                
+                // XXX this only works for citations and thesis, not binary objects!
             case (preg_match("/^\d+\-/", $filename) ? true : false) :
             case ('metadata.xml') :
             case (preg_match("/\.pdf$/", $filename) ? true : false) :
                 break;
+*/
             default:
-                $return = true;
+                $return = false;
         }
         return $return;
 
@@ -274,11 +278,14 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
 
         $fileStorage = new SplObjectStorage();
         foreach ($downloaded_file_list as $value) {
-            $file = new stdClass();
-            $file->uri = $value;
-            $file->fullname = pathinfo($value, PATHINFO_BASENAME);
-            $file->name = pathinfo($value, PATHINFO_FILENAME);
-            $fileStorage->attach($file);
+            $this->logmsg("SplObjectStorage " . $value);
+            if ( file_exists($value)) {
+                $file = new stdClass();
+                $file->uri = $value;
+                $file->fullname = pathinfo($value, PATHINFO_BASENAME);
+                $file->name = pathinfo($value, PATHINFO_FILENAME);
+                $fileStorage->attach($file);
+            }
         }
         return $fileStorage;
     }
@@ -303,7 +310,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         $harvest_list = array();
         $prefix = $this->getAWSFilterPath();
         if (isset($prefix)) {
-            $prefix .= '/' . $this->getDigitalCommonsSeriesName();
+            $prefix .= DIRECTORY_SEPARATOR .$this->getDigitalCommonsSeriesName();
         } else {
             $prefix = $this->getDigitalCommonsSeriesName();
         }
@@ -393,15 +400,16 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
 
         // remove all the failed objects from writing to the output catalog file
         $failed_object_list = $this->getFailedObjectList();
-        foreach ($failed_object_list as $failedid) {
-            $nodes = $xpathHarvest->query("//doc[@*[contains(.,'/{$failedid}/')]]");
+        foreach ($failed_object_list as $failed_id) {
+
+            $nodes = $xpathHarvest->query("//doc[@*[contains(.,'/{$failed_id}/')]]");
 
             if (isset($nodes) && $nodes->length > 0) {
                 $xmlHarvestDOM->removeChild($nodes);
             }
 
-            if ($this->isInDownloadedObjectList($failedid)) {
-                $this->removeFromDownloadedObjectList($failedid);
+            if ($this->isInDownloadedObjectList($failed_id)) {
+                $this->removeFromDownloadedObjectList($failed_id);
             }
         }
         $this->setMasterCatalogFullpath(sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->getAWSBucketName() . DIRECTORY_SEPARATOR . $this->getBasexCatalogName());
@@ -432,9 +440,10 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                     $key = $item['Key'];
                     // the last segment of the URI key is the full filename
                     $file_name = pathinfo($key, PATHINFO_BASENAME);
-                    $object_dir = pathinfo($key, PATHINFO_DIRNAME);
-                    $object_id = pathinfo($object_dir, PATHINFO_FILENAME);
-                    if ($this->canStopFileProcessing($key) || $this->isInFailedObjectList($object_id)) {
+                    $object_id = $this->formatObjectId($key);
+
+
+                    if (!(isset($object_id)) || $this->canStopProcessingFilter($key) || $this->isInFailedObjectList($object_id)) {
                         continue;
                     }
 
@@ -463,7 +472,11 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                             'SaveAs' => $tmp_file
                         ));
                         // this where the object should be added to an array that manages the downloaded items
-                        $this->addDownloadedObjectList($object_id, $tmp_file);
+                        $content_type = $result->get('ContentType') ;
+                        if ( $content_type !== 'application/x-directory') {
+                            $this->addDownloadedObjectList($object_id, $tmp_file);
+                            $this->logmsg("DOWNLOADED: " . $tmp_file);
+                        }
                     } catch (Exception $ex) {
                         if (!file_exists("$TMP_DIR_FAIL/$object_id")) {
                             rename($full_object_path, "$TMP_DIR_FAIL/$object_id");
@@ -483,6 +496,24 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
 
     }
 
+    private function formatObjectId($location) {
+        $object_id = null;
+        $prefix = $this->getAWSFilterPath();
+        if (isset($prefix)) {
+            $prefix .= DIRECTORY_SEPARATOR .$this->getDigitalCommonsSeriesName() . DIRECTORY_SEPARATOR;
+        } else {
+            $prefix = $this->getDigitalCommonsSeriesName() . DIRECTORY_SEPARATOR;
+        }
+        $object_dir = pathinfo($location, PATHINFO_DIRNAME);
+        // the path that should be created for the object id may be a single subdirectory, or multiple
+        // remove the prefix from the start of the path
+        // give credit where credit is due: https://stackoverflow.com/questions/4517067/remove-a-string-from-the-beginning-of-a-string
+        if (substr($object_dir, 0, strlen($prefix)) == $prefix) {
+            $object_id = substr($object_dir, strlen($prefix));
+        }
+        return $object_id;
+    }
+
     public function addGeneratedModsFiles($harvest_array_list)
     {
 
@@ -494,15 +525,14 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                 foreach ($line as $item) {
                     $key = $item['Key'];
                     $file_name = pathinfo($key, PATHINFO_BASENAME);
-                    $object_dir = pathinfo($key, PATHINFO_DIRNAME);
-                    $object_id = pathinfo($object_dir, PATHINFO_FILENAME);
+                    $object_id = $this->formatObjectId($key);
 
 
                     $full_object_path = $TMP_DIR_HARVEST . DIRECTORY_SEPARATOR . $object_id;
 
                     if ($file_name === 'metadata.xml') {
                         if (file_exists($full_object_path)) {
-                            $this->logmsg($full_object_path . DIRECTORY_SEPARATOR . "MODS.xml");
+//                            $this->logmsg($full_object_path . DIRECTORY_SEPARATOR . "MODS.xml");
                             $mods_filepath = $full_object_path . DIRECTORY_SEPARATOR . "MODS.xml";
                             $this->addDownloadedObjectList($object_id, $mods_filepath);
                         } else {
@@ -749,16 +779,5 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         $this->digitalCommonsTransformBaseX = $digitalCommonsTransformBaseX;
     }
 
-    private function logmsg($message)
-    {
 
-        $date = date("Y-m-d h:m:s");
-        $current_file = __FILE__;
-        $includes_dir = pathinfo($current_file, PATHINFO_DIRNAME);
-        $toplevel_dir = pathinfo($includes_dir, PATHINFO_DIRNAME);
-        $logFile = $toplevel_dir . DIRECTORY_SEPARATOR . $this->batchProcessLogFileName;
-
-        $message = "[{$date}] [{$current_file}] ${message}" . PHP_EOL;
-        return file_put_contents($logFile, $message, FILE_APPEND);
-    }
 }
