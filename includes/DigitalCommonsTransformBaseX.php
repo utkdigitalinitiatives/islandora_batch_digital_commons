@@ -101,11 +101,7 @@ class DigitalCommonsTransformBaseX
         $zip_results = $zip->open($basex_bepress_mods_zipfile);
         if ($zip_results === TRUE) {
             $toplevel_dir_zip = $zip->getNameIndex(0);
-
-
-            $bepress_mods_transform_dir = dirname(__FILE__);
-            $bepress_mods_transform_dir = dirname($bepress_mods_transform_dir);
-            $bepress_mods_transform_dir  .=  DIRECTORY_SEPARATOR . "scripts" . DIRECTORY_SEPARATOR . $toplevel_dir_zip ;
+            $bepress_mods_transform_dir = $module_scripts_directory . DIRECTORY_SEPARATOR . $toplevel_dir_zip ;
             $this->setBasexBepressToModsDir($bepress_mods_transform_dir);
             if ( file_exists($bepress_mods_transform_dir)) {
                 $this->deleteDirectoryTree($bepress_mods_transform_dir);

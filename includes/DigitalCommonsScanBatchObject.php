@@ -954,15 +954,21 @@ EOXML;
         $modsDOM = new DOMDocument();
         $modsDOM->loadXML($modsXML);
         $modsRootNode = $modsDOM->documentElement;
+        if (! isset($modsRootNode->childNodes)) {
+            $exception = $this->getFormattedException("Unable to retrieve child nodes of the MODS document model (DOM)!", __LINE__);
+            throw $exception;
+        }
         $toplevelChildren = $modsRootNode->childNodes;
-        $children_count = $toplevelChildren->count();
-        $last_index = $children_count -1;
-        for ($i = $last_index; $children_count > 0; --$children_count) {
+        if (! isset($toplevelChildren)) {
+            $exception = $this->getFormattedException("Unable to retrieve toplevel child nodes of the MODS document model (DOM)!", __LINE__);
+            throw $exception;
+        }
+        for ($i = $toplevelChildren->length - 1; $i > 0; --$i) {
             $childNode = $toplevelChildren->item($i);
-            if ( $childNode->nodeType == XML_ELEMENT_NODE && $childNode->nodeName === 'relatedItem' &&
-                ($childNode->attributes->getNamedItem('type') === 'constituent') ) {
+            if ( $childNode->nodeType == XML_ELEMENT_NODE && $childNode->nodeName === 'mods:relatedItem' &&
+                ($childNode->attributes->getNamedItem('type')->nodeValue === 'constituent') ) {
                 $relatedItemChildren = $childNode->getElementsByTagName('note');
-                $noteNodeListCount = $relatedItemChildren->count();
+                $noteNodeListCount = $relatedItemChildren->length;
                 if ($noteNodeListCount == 2) {
                     // the key is the supplemental datastream name assigned in the MODS.
                     $key = null;
@@ -972,10 +978,10 @@ EOXML;
                     // displayLabel="supplemental_file"
 
                     for ($j = 0; $j < $noteNodeListCount; $j++) {
-                        if ($relatedItemChildren->item($j)->getAttribute()->name === 'displayLabel' && $relatedItemChildren->item($j)->getAttribute()->value === 'supplemental_file') {
+                        if ($relatedItemChildren->item($j)->hasAttribute('displayLabel') && $relatedItemChildren->item($j)->getAttribute('displayLabel') === 'supplemental_file') {
                             $key = $relatedItemChildren->item($j)->nodeValue;
                         }
-                        if ($relatedItemChildren->item($j)->getAttribute()->name === 'displayLabel' && $relatedItemChildren->item($j)->getAttribute()->value === 'supplemental_filename') {
+                        if ($relatedItemChildren->item($j)->hasAttribute('displayLabel') && $relatedItemChildren->item($j)->getAttribute('displayLabel') === 'supplemental_filename') {
                             $value = $relatedItemChildren->item($j)->nodeValue;
                             $removeNode = $relatedItemChildren->item($j);
                         }

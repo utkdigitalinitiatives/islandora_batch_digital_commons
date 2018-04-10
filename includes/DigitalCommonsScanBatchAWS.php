@@ -36,6 +36,19 @@ require '/usr/local/share/php5/php-aws/aws-autoloader.php';
 use Aws\Credentials\CredentialProvider;
 use Aws\S3\S3Client;
 
+module_load_include('php', 'islandora_batch_digital_commons', 'includes/DigitalCommonsFedoraObjectModelCache');
+module_load_include('php', 'islandora_batch_digital_commons', 'includes/DigitalCommonsFileInfo');
+module_load_include('php', 'islandora_batch_digital_commons', 'includes/DigitalCommonsObjectInfo');
+module_load_include('php', 'islandora_batch_digital_commons', 'includes/DigitalCommonsScanBatchAWS');
+module_load_include('php', 'islandora_batch_digital_commons', 'includes/DigitalCommonsScanBatchBase');
+module_load_include('php', 'islandora_batch_digital_commons', 'includes/DigitalCommonsScanBatchFactory');
+module_load_include('php', 'islandora_batch_digital_commons', 'includes/DigitalCommonsScanBatchObject');
+module_load_include('php', 'islandora_batch_digital_commons', 'includes/DigitalCommonsTransformBaseX');
+module_load_include('inc', 'islandora_batch_digital_commons', 'includes/ingest_digital_commons.batch');
+module_load_include('inc', 'islandora_batch', 'includes/islandora_scan_batch');
+module_load_include('inc', 'islandora_batch', 'includes/islandora_batch_object_base');
+module_load_include('inc', 'islandora_batch', 'includes/ingest.batch');
+
 class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
 {
 
@@ -351,7 +364,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
         foreach ($harvest_array_list as $object_id => $file_list) {
             foreach ($file_list as $file_name) {
 
-                if ($file_name === 'metadata.xml') {
+                if (basename($file_name, ".xml") === 'metadata') {
                     file_put_contents($file_name, str_replace("/[\000-\007\010\013\014\016-\031]/", "", file_get_contents($file_name)));
                     $metadata_xml_writer->startElement('doc');
                     $metadata_xml_writer->startAttribute('href');
