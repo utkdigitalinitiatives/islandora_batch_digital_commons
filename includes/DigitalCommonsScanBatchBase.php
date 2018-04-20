@@ -15,7 +15,7 @@ class DigitalCommonsScanBatchBase extends IslandoraScanBatch
     private $collection_policy_xpath_str = '/islandora:collection_policy/islandora:content_models/islandora:content_model/@pid';
     private $MAX_SUBDIRECTORY_DEPTH_FOR_COLLECTIONS = 20;
     private $object_model_cache;
-
+    protected $batchProcessLogFileName = "DigitalCommonsScanBatchAWS.log";
     /**
      * Constructor must be able to receive an associative array of parameters.
      *
@@ -148,51 +148,38 @@ class DigitalCommonsScanBatchBase extends IslandoraScanBatch
         // should reside in the object directory
         // with all parent directories becoming the DigitalCommonsObjectId
         while ($fileStorage->count() > 0) {
-            $fileStorage->rewind();
+
             // incase something gets stuck and we are not able to detach all the files, this is the release valve
-            $digitalCommonsMetadata = null;
+
             if ($iterations > $iteration_limit) {
                 break;
             }
+            $digitalCommonsMetadataObjectInfo = $this->selectDigitalCommonsMetadataObjectInfo($fileStorage) ;
 
-            foreach ($fileStorage as $storedFile) {
+            if (isset($digitalCommonsMetadataObjectInfo)) {
+                $fileStorage->rewind();
 
-                if ($storedFile->fullname == "metadata.xml") {
-                    $digitalCommonsMetadata = $storedFile;
+                $file_storage_count =  $fileStorage->count();
+                for ($i = 0; $i < $file_storage_count; ++$i){
+                    // foreach ($fileStorage as $storedFile) {
+                    $storedFile = $fileStorage->current();
+                    if ($this->isFileDepositedWithObject($storedFile, $digitalCommonsMetadataObjectInfo)) {
+                        $digitalCommonsFileObject = $this->buildFileObject($storedFile);
+                        $digitalCommonsFileObjectDigitalCommonsId = $digitalCommonsFileObject->getDigitalCommonsObjectId();
+                        $digitalCommonsMetadataObjectInfoDigitalCommonsId = $digitalCommonsMetadataObjectInfo->getDigitalCommonsObjectId();
+                        if (isset($digitalCommonsFileObject) &&
+                            isset($digitalCommonsFileObjectDigitalCommonsId )  &&
+                            ($digitalCommonsFileObjectDigitalCommonsId === $digitalCommonsMetadataObjectInfoDigitalCommonsId)) {
+                            $digitalCommonsMetadataObjectInfo->addFileArray($digitalCommonsFileObject);
 
-                    break;
+                            $fileStorage->detach($storedFile);
+                        } else {
+                            $fileStorage->next();
+                        }
+                    } else {
+                        $fileStorage->next();
+                    }
                 }
-            }
-
-            if (isset($digitalCommonsMetadata)) {
-                $digitalCommonsMetadataFileObject = $this->buildFileObject($digitalCommonsMetadata);
-                if (isset($digitalCommonsMetadataFileObject)) {
-                    $digitalCommonsMetadataObjectInfo = $this->buildObjectInfo($digitalCommonsMetadataFileObject);
-                }
-                $grouped[$digitalCommonsMetadataFileObject->getDigitalCommonsObjectId()] = $digitalCommonsMetadataObjectInfo;
-                $fileStorage->detach($digitalCommonsMetadata);
-            } else {
-                $debug = var_export($fileStorage, true);
-
-                throw new Exception("File metadata.xml could not be found\n{$debug}\n"  );
-            }
-
-            $fileStorage->rewind();
-
-            $file_storage_count =  $fileStorage->count();
-            for ($i = 0; $i < $file_storage_count; ++$i){
-                // foreach ($fileStorage as $storedFile) {
-                $storedFile = $fileStorage->current();
-
-                $file_object = $this->buildFileObject($storedFile, $digitalCommonsMetadataObjectInfo);
-                if (isset($file_object) && isset($grouped[$file_object->getDigitalCommonsObjectId()])) {
-                    $grouped[$file_object->getDigitalCommonsObjectId()]->addFileArray($file_object);
-
-                    $fileStorage->detach($storedFile);
-                } else {
-                    $fileStorage->next();
-                }
-
             }
             if ($fileStorage->count() < $previous_count) {
                 $previous_count = $fileStorage->count();
@@ -200,10 +187,71 @@ class DigitalCommonsScanBatchBase extends IslandoraScanBatch
             } else {
                 ++$iterations;
             }
+            // validate that the $digitalCommonsMetadataObjectInfo has the correct number of files.
+            // presumably a metadata.xml file, a MODS.xml file, and one other file, not matter what it may be?
+            // but there is a bogus type of file that should be ignored....
+            if ($this->validObjectContents($digitalCommonsMetadataObjectInfo)) {
+                $grouped[$digitalCommonsMetadataObjectInfo->getDigitalCommonsObjectId()] = $digitalCommonsMetadataObjectInfo;
+            }
         }
         return $grouped;
     }
+    private function isFileDepositedWithObject($file, $digitalCommonsMetadataObjectInfo) {
 
+        $object_path_id = $digitalCommonsMetadataObjectInfo->getDigitalCommonsObjectFullPath();
+
+
+        if (substr($file->uri, 0, strlen($object_path_id)) == $object_path_id) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    /*
+     * find a metadata.xml file, create a DigitalCommonsFileInfo object,
+     * create a DigitalCommonsObjectInfo and assign the DigitalCommonsFileInfo
+     * to the  DigitalCommonsObjectInfo
+     *
+     * remove the selected metadata.xml file from filestorage
+     */
+    private function selectDigitalCommonsMetadataObjectInfo($fileStorage) {
+        $fileStorage->rewind();
+        $digitalCommonsMetadataObjectInfo = null;
+        foreach ($fileStorage as $storedFile) {
+
+            if ($storedFile->fullname == "metadata.xml") {
+                $digitalCommonsMetadata = $storedFile;
+
+                break;
+            }
+        }
+
+        if (isset($digitalCommonsMetadata)) {
+            $digitalCommonsMetadataFileObject = $this->buildFileObject($digitalCommonsMetadata);
+            if (isset($digitalCommonsMetadataFileObject)) {
+                $digitalCommonsMetadataObjectInfo = $this->buildObjectInfo($digitalCommonsMetadataFileObject);
+            }
+
+            $fileStorage->detach($digitalCommonsMetadata);
+        } else {
+            $debug = $fileStorage->serialize();
+
+            throw new Exception("File metadata.xml could not be found\n{$debug}\n"  );
+        }
+        return $digitalCommonsMetadataObjectInfo;
+    }
+    // make certain that the object has more than just metadata
+    protected function validObjectContents($digitalCommonsMetadataObjectInfo) {
+        $digitalCommonsFileInfoList = $digitalCommonsMetadataObjectInfo->getFileArray();
+        foreach ($digitalCommonsFileInfoList as $digitalCommonsFileInfo) {
+            // if the list of files has at least one file that is not named metadata.xml or MODS.xml, then it is valid
+            if ( ($digitalCommonsFileInfo->getFullname() !== "metadata.xml") && ($digitalCommonsFileInfo->getFullname() !== "MODS.xml")) {
+               return true;
+            }
+        }
+        return false;
+
+    }
     protected function buildObjectInfo($file_object)
     {
         $object_info = new DigitalCommonsObjectInfo();
@@ -211,7 +259,6 @@ class DigitalCommonsScanBatchBase extends IslandoraScanBatch
         // passed in as a parameter to IslandoraScanBatchDigitalCommons
         $object_info->setCollection($this->getCollectionPID());
         $object_info->setDigitalCommonsSeries($this->getDigitalCommonsSeriesName());
-        $object_info->setArchiveTopLevelDirectoryFullPath($this->getTarget());
         if (isset($this->parameters['collection_relationship_pred'])) {
             $object_info->setCollectionRelationshipPred($this->parameters['collection_relationship_pred']);
         }
@@ -231,11 +278,12 @@ class DigitalCommonsScanBatchBase extends IslandoraScanBatch
         return $object_info;
     }
 
-    protected function buildFileObject($file, DigitalCommonsObjectInfo $digitalCommonsMetadataObjectInfo = null)
+    protected function buildFileObject($file)
     {
         // counter for ascending the path towards the collection level directory
         $i = 0;
         $file_object = null;
+/*
         if (isset($digitalCommonsMetadataObjectInfo)) {
             $count = 0;
             $object_path_id = $digitalCommonsMetadataObjectInfo->getDigitalCommonsObjectFullPath();
@@ -249,6 +297,7 @@ class DigitalCommonsScanBatchBase extends IslandoraScanBatch
 
             }
         } else  {
+*/
             // Each file_object represents a Fedora DataStream
             // The collection directory of each file(DS) indicates an ObjectID in Digital Commons
             $file_object =  $this->buildDigitalCommonsFileInfo($file);
@@ -285,7 +334,7 @@ class DigitalCommonsScanBatchBase extends IslandoraScanBatch
                 $digitalCommonsSeriesName = pathinfo($digitalCommonsSeriesDirectory, PATHINFO_FILENAME);
                 ++$i;
             }
-        }
+ //       }
         return $file_object;
     }
 
@@ -409,5 +458,17 @@ class DigitalCommonsScanBatchBase extends IslandoraScanBatch
         }
 
         return $to_return;
+    }
+    protected function logmsg($message)
+    {
+
+        $date = date("Y-m-d h:m:s");
+        $current_file = __FILE__;
+        $includes_dir = pathinfo($current_file, PATHINFO_DIRNAME);
+        $toplevel_dir = pathinfo($includes_dir, PATHINFO_DIRNAME);
+        $logFile = $toplevel_dir . DIRECTORY_SEPARATOR . $this->batchProcessLogFileName;
+
+        $message = "[{$date}] [{$current_file}] ${message}" . PHP_EOL;
+        return file_put_contents($logFile, $message, FILE_APPEND);
     }
 }

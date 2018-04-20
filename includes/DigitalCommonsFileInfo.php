@@ -22,7 +22,7 @@ class DigitalCommonsFileInfo {
         // the name of the file without extention
         protected $name; //String
         
-        // the extention of the file
+        // the extension of the file
         protected $ext; //String
         // Each file_object represents a Fedora DataStream
         // The parent directory of each file(DS) indicates an ObjectID in Digital Commons
