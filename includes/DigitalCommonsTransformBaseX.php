@@ -27,8 +27,8 @@ class DigitalCommonsTransformBaseX
             $this->java_fullpath = $java_fullpath;
         }
         if (is_null($transform_uri)) {
-            $this->setTransformUri('https://github.com/utkdigitalinitiatives/basex-bepress-to-mods/archive/b9a555360883c380aeefdeadfbb7b6b776ddef35.zip');
-//            $this->setTransformUri('https://github.com/robert-patrick-waltz/basex-bepress-to-mods/archive/master.zip');
+//            $this->setTransformUri('https://github.com/utkdigitalinitiatives/basex-bepress-to-mods/archive/b9a555360883c380aeefdeadfbb7b6b776ddef35.zip');
+            $this->setTransformUri('https://github.com/utkdigitalinitiatives/basex-bepress-to-mods/archive/master.zip');
         } else {
             $this->setTransformUri($transform_uri);
 

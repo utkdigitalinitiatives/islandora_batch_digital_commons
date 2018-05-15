@@ -26,6 +26,7 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
     // BATCH_OBJECT_PREFIX is used to group cached objects in drupal's cache.inc module
     public static $BATCH_OBJECT_PREFIX = "DigitalCommonsScanBatchObject";
     private $batchProcessLogFileName = "DigitalCommonsScanBatchObject.log";
+    private $batchProcessRemapFile = "remap.config";
     protected $dsLabelToURI = array();
     private $digitalCommonsFulltextURL = null;
 
@@ -87,7 +88,9 @@ class DigitalCommonsScanBatchObject extends IslandoraScanBatchObject
                 " - TRACE Id: " . $this->id ;
             $this->logDigitalCommonsBatch($log_message, __LINE__);
 
-
+            $origination_uri = "http://trace.tennessee.edu" . "/" . $this->getObjectInfo()->getDigitalCommonsSeries() . "/" . $this->getObjectInfo()->getDigitalCommonsObjectId();
+            $destination_uri= "http://trace.utk.edu/islandora/object/" . $this->id;
+            $this->remapTrafficServer($origination_uri, $destination_uri);
             $key =  DigitalCommonsScanBatchObject::$BATCH_OBJECT_PREFIX . $this->id;
             $expire_datetime = time() + $this->CACHE_EXPIRY_SECONDS;
             cache_set($key, $this, 'cache_field', $expire_datetime);
@@ -1130,6 +1133,16 @@ EOXML;
         return file_put_contents($logFile, $format_message, FILE_APPEND);
     }
 
+    private function remapTrafficServer($origination_uri, $destination_uri) {
+        $current_file = __FILE__;
+
+        $includes_dir =  pathinfo($current_file, PATHINFO_DIRNAME);
+        $toplevel_dir =  pathinfo($includes_dir, PATHINFO_DIRNAME);
+        $logFile = $toplevel_dir . DIRECTORY_SEPARATOR . $this->batchProcessRemapFile;
+        $format_message = "map $origination_uri $destination_uri\nreverse_map $destination_uri $origination_uri";
+        return file_put_contents($logFile, $format_message, FILE_APPEND);
+
+    }
     public function logDigitalCommonsBatch($message, $line_number = 'N/A') {
         $this->logmsg($message, $line_number);
     }

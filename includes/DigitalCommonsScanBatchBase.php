@@ -192,6 +192,8 @@ class DigitalCommonsScanBatchBase extends IslandoraScanBatch
             // but there is a bogus type of file that should be ignored....
             if ($this->validObjectContents($digitalCommonsMetadataObjectInfo)) {
                 $grouped[$digitalCommonsMetadataObjectInfo->getDigitalCommonsObjectId()] = $digitalCommonsMetadataObjectInfo;
+            } else {
+                $this->logmsg("INVALID OBJECT: METADATA ONLY - TRACE Collection: " . $digitalCommonsMetadataObjectInfo->getCollection() . " - TRACE Series: " .  $digitalCommonsMetadataObjectInfo->getDigitalCommonsSeries() . " - Original Commons ID: ". $digitalCommonsMetadataObjectInfo->getDigitalCommonsObjectId() . " - FULL Path: " . $digitalCommonsMetadataObjectInfo->getDigitalCommonsObjectFullPath());
             }
         }
         return $grouped;

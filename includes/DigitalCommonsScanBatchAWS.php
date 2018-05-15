@@ -476,6 +476,13 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                         if ( $content_type !== 'application/x-directory') {
                             $this->addDownloadedObjectList($object_id, $tmp_file);
                             $this->logmsg("DOWNLOADED: " . $tmp_file);
+                            if ($file_name === 'metadata.xml') {
+                              $file_contents = file_get_contents($tmp_file);
+                              $file_contents = preg_replace('/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/', '', $file_contents);
+                              if (!file_put_contents($tmp_file, $file_contents)) {
+                                throw new Exception("Unable to write " . $tmp_file . " after replacing control characters");
+                              }
+                            }
                         }
                     } catch (Exception $ex) {
                         if (!file_exists("$TMP_DIR_FAIL/$object_id")) {
