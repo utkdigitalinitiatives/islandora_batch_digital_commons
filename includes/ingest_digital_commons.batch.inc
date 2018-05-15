@@ -23,9 +23,7 @@ function islandora_batch_digital_commons_ingest_process(array $parameters, &$con
     
 }
 spl_autoload_register(function ($name) {
-    if ($name === "IslandoraScanBatchObjectDigitalCommons") {
-      require_once (__DIR__ . "/islandora_scan_batch_digital_commons.inc");
-    } elseif ((preg_match("/(DigitalCommonsObjectInfo)|(DigitalCommonsFileInfo)/", $name )  ) === 1) {
+    if ((preg_match("/(DigitalCommonsScanBatch(Factory|Base|AWS|ZIP|DIR|Object))|(DigitalCommonsObjectInfo)|(DigitalCommonsFileInfo)/", $name )  ) === 1) {
       require_once (__DIR__ . "/$name" . ".php");
     }
 });

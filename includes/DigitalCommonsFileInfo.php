@@ -22,7 +22,7 @@ class DigitalCommonsFileInfo {
         // the name of the file without extention
         protected $name; //String
         
-        // the extention of the file
+        // the extension of the file
         protected $ext; //String
         // Each file_object represents a Fedora DataStream
         // The parent directory of each file(DS) indicates an ObjectID in Digital Commons
@@ -42,7 +42,7 @@ class DigitalCommonsFileInfo {
             return $this->uri;
         }
 
-        public function getFilename() {
+        public function getFullname() {
             return $this->filename;
         }
 
@@ -67,7 +67,7 @@ class DigitalCommonsFileInfo {
             $this->uri = $uri;
         }
 
-        public function setFilename($filename) {
+        public function setFullname($filename) {
             $this->filename = $filename;
         }
 
