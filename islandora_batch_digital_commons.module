@@ -117,6 +117,18 @@ function islandora_batch_digital_commons_retrieveDataFromDsvFile($data_file_path
 function islandora_batch_digital_commons_islandora_batch_object_processed(AbstractFedoraObject $ingest_object, $is_object_state_done)
 {
     if ($is_object_state_done) {
+        module_load_include('php', 'islandora_batch_digital_commons', 'includes/DigitalCommonsFedoraObjectModelCache');
+        module_load_include('php', 'islandora_batch_digital_commons', 'includes/DigitalCommonsFileInfo');
+        module_load_include('php', 'islandora_batch_digital_commons', 'includes/DigitalCommonsObjectInfo');
+        module_load_include('php', 'islandora_batch_digital_commons', 'includes/DigitalCommonsScanBatchAWS');
+        module_load_include('php', 'islandora_batch_digital_commons', 'includes/DigitalCommonsScanBatchBase');
+        module_load_include('php', 'islandora_batch_digital_commons', 'includes/DigitalCommonsScanBatchFactory');
+        module_load_include('php', 'islandora_batch_digital_commons', 'includes/DigitalCommonsScanBatchObject');
+        module_load_include('php', 'islandora_batch_digital_commons', 'includes/DigitalCommonsTransformBaseX');
+        module_load_include('inc', 'islandora_batch_digital_commons', 'includes/ingest_digital_commons.batch');
+        module_load_include('inc', 'islandora_batch', 'includes/islandora_scan_batch');
+        module_load_include('inc', 'islandora_batch', 'includes/islandora_batch_object_base');
+        module_load_include('inc', 'islandora_batch', 'includes/ingest.batch');
         $key = DigitalCommonsScanBatchObject::$BATCH_OBJECT_PREFIX . $ingest_object->id;
         $cached_object = cache_get($key, 'cache_field');
         $digitalCommonsScanBatchObject = $cached_object->data;
