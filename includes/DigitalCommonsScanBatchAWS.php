@@ -628,11 +628,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
      */
     public function getTmpHarvestDirectory()
     {
-        if (isset($this->parameters['tmp_harvest_directory'])) {
             return $this->getTmpScanDirectory() . DIRECTORY_SEPARATOR . $this->getDigitalCommonsSeriesName();
-        } else {
-            return $this->parameters['tmp_harvest_directory'];
-        }
     }
 
     /**
