@@ -424,13 +424,11 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
     public function downloadAWSFiles($harvest_array_list)
     {
 
-        $TMP_DIR_HARVEST = $this->getTmpScanDirectory() . DIRECTORY_SEPARATOR . $this->getDigitalCommonsSeriesName();
+        $TMP_DIR_HARVEST = $this->getTmpHarvestDirectory();
         $this->verifyCreateDirectory($TMP_DIR_HARVEST);
-        $this->setTmpHarvestDirectory($TMP_DIR_HARVEST);
 
-        $TMP_DIR_FAIL = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "fail" . DIRECTORY_SEPARATOR . $this->getAWSBucketName() . DIRECTORY_SEPARATOR . $this->getDigitalCommonsSeriesName();
+        $TMP_DIR_FAIL = $this->getTmpFailedDirectory();
         $this->verifyCreateDirectory($TMP_DIR_FAIL);
-        $this->setTmpFailedDirectory($TMP_DIR_FAIL);
 
         $s3Client = $this->getS3Client();
 
@@ -650,7 +648,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
             return $this->parameters['tmp_failed_directory'];
 
         } else {
-            return $this->getTmpScanDirectory() . DIRECTORY_SEPARATOR . "/Fail";
+            return $this->getTmpScanDirectory() . DIRECTORY_SEPARATOR . "Fail"  . DIRECTORY_SEPARATOR . $this->getDigitalCommonsSeriesName();
         }
     }
 
@@ -729,7 +727,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
     {
         if (!file_exists($check_directory)) {
             if (!mkdir($check_directory, 0775, true)) {
-                throw new ErrorException("Unable to create {$check_directory}");
+                throw new ErrorException("Unable to create $check_directory");
             }
         }
     }
