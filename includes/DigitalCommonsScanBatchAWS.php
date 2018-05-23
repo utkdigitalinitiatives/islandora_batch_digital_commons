@@ -412,7 +412,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                 $this->removeFromDownloadedObjectList($failed_id);
             }
         }
-        $this->setMasterCatalogFullpath(sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->getAWSBucketName() . DIRECTORY_SEPARATOR . $this->getBasexCatalogName());
+        $this->setMasterCatalogFullpath($this->getTmpScanDirectory() . DIRECTORY_SEPARATOR . $this->getAWSBucketName() . DIRECTORY_SEPARATOR . $this->getBasexCatalogName());
         $master_catalog_fullpath = $this->getMasterCatalogFullpath();
         if (file_exists($master_catalog_fullpath)) {
             unlink($master_catalog_fullpath);
