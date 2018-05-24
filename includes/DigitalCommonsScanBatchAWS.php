@@ -125,6 +125,8 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
 
             $this->setBasexCatalogName($base_catalog_name);
         }
+
+        $this->logmsg("Preprocess: Digital Commons Series " . $parameters['digital_commons_series_name'] . " to TRACE collection pid " . $parameters['collection_pid']);
     }
 
     /**
@@ -278,7 +280,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
 
         $fileStorage = new SplObjectStorage();
         foreach ($downloaded_file_list as $value) {
-            $this->logmsg("SplObjectStorage " . $value);
+ #           $this->logmsg("SplObjectStorage " . $value);
             if ( file_exists($value)) {
                 $file = new stdClass();
                 $file->uri = $value;
@@ -355,6 +357,9 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
             }
         }
         unlink($persist_listobjects_filepath);
+        foreach ($errors as $error) {
+            $this->logmsg("ERROR: ${error}");
+        }
         return $harvest_list;
     }
 
@@ -473,7 +478,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                         $content_type = $result->get('ContentType') ;
                         if ( $content_type !== 'application/x-directory') {
                             $this->addDownloadedObjectList($object_id, $tmp_file);
-                            $this->logmsg("DOWNLOADED: " . $tmp_file);
+ #                           $this->logmsg("DOWNLOADED: " . $tmp_file);
                             if ($file_name === 'metadata.xml') {
                               $file_contents = file_get_contents($tmp_file);
                               $file_contents = preg_replace('/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/', '', $file_contents);
@@ -489,6 +494,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                             $this->recurse_copy($full_object_path, "$TMP_DIR_FAIL/$object_id");
                             $this->recurse_rmdir($full_object_path);
                         }
+                        $this->logmsg("ERROR: ${tmp_file}  failed");
                         $this->addFailedObjectList($object_id);
                         continue;
 
@@ -541,7 +547,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                             $mods_filepath = $full_object_path . DIRECTORY_SEPARATOR . "MODS.xml";
                             $this->addDownloadedObjectList($object_id, $mods_filepath);
                         } else {
-                            throw new Exception("Unable to determine location of generated MODS.xml file");
+                            throw new Exception("Unable to determine location of generated MODS.xml file in ${full_object_path}");
                         }
                     }
                 }
