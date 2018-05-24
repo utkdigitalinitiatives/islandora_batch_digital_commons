@@ -175,6 +175,7 @@ function drush_islandora_batch_digital_commons_scan_preprocess()
         $parameters['aws_filter_path'] = $collection->aws_filter_path;
 
         $parameters['basex_bepress_mods_transform_name'] = $collection->basex_bepress_mods_transform_name;
+
         try {
             // Could use a drush_multiple_choice() or whatever to get the list of
             // content models, if none were provided?
@@ -183,12 +184,12 @@ function drush_islandora_batch_digital_commons_scan_preprocess()
 
             // Pass the preprocessor off to run.
             $preprocessed = islandora_batch_digital_commons_handle_preprocessor($preprocessor);
-            drush_log(t("SetId: @s", array('@s' => $preprocessor->getSetId())), "ok");
+            drush_log(t("SetId: @s from @d with pid @p", array('@s' => $preprocessor->getSetId(), '@d' => $parameters['digital_commons_series_name'], '@p' => $parameters['collection_pid'])), "ok");
         } catch (Exception $e) {
-            drupal_set_message(t('Error Processing Islandora collection objects from (PID %p). %m',
-                array('%p' => $parameters['collection_pid'], '%m' => $e->getMessage())), 'error');
-            watchdog('islandora_batch_digital_commons', 'Error Processing Islandora collection objects from (PID %p). %m',
-                array('%p' => $parameters['collection_pid'], '%m' => $e->getMessage()), WATCHDOG_ERROR);
+            drupal_set_message(t('Error Processing series %s to Islandora collection objects at (PID %p). %m',
+                array('%s' => $parameters['digital_commons_series_name'],'%p' => $parameters['collection_pid'], '%m' => $e->getMessage())), 'error');
+            watchdog('islandora_batch_digital_commons', 'Error Processing series  %s to Islandora collection objects at (PID %p). %m',
+                array('%s' => $parameters['digital_commons_series_name'],'%p' => $parameters['collection_pid'], '%m' => $e->getMessage()), WATCHDOG_ERROR);
         }
     }
 
