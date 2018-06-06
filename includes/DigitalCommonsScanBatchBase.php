@@ -464,7 +464,7 @@ class DigitalCommonsScanBatchBase extends IslandoraScanBatch
     protected function logmsg($message)
     {
 
-        $date = date("Y-m-d h:m:s");
+        $date = date(DATE_W3C);
         $current_file = __FILE__;
         $includes_dir = pathinfo($current_file, PATHINFO_DIRNAME);
         $toplevel_dir = pathinfo($includes_dir, PATHINFO_DIRNAME);

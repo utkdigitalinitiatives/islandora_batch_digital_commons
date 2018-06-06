@@ -269,7 +269,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
 
         $directory_contents = $this->scan_aws_s3();
 
-
+#        $this->logmsg(print_r($directory_contents,true));
         $this->downloadAWSFiles($directory_contents);
 
         $this->create_basex_catalog();
@@ -445,7 +445,6 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                     $file_name = pathinfo($key, PATHINFO_BASENAME);
                     $object_id = $this->formatObjectId($key);
 
-
                     if (!(isset($object_id)) || $this->canStopProcessingFilter($key) || $this->isInFailedObjectList($object_id)) {
                         continue;
                     }
@@ -474,6 +473,10 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                             'Key' => $key,
                             'SaveAs' => $tmp_file
                         ));
+                        if (! file_exists($tmp_file)) {
+                            $this->logmsg("Unable to download " . $tmp_file);
+                            throw new Exception("unable to download " . $tmp_file );
+                        }
                         // this where the object should be added to an array that manages the downloaded items
                         $content_type = $result->get('ContentType') ;
                         if ( $content_type !== 'application/x-directory') {
@@ -483,8 +486,13 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                               $file_contents = file_get_contents($tmp_file);
                               $file_contents = preg_replace('/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/', '', $file_contents);
                               if (!file_put_contents($tmp_file, $file_contents)) {
+                                  $this->logmsg("unable to write transformed " . $tmp_file);
                                 throw new Exception("Unable to write " . $tmp_file . " after replacing control characters");
                               }
+                            }
+                            if (! file_exists($tmp_file)) {
+                                $this->logmsg("After downloading the file " . $tmp_file . " no longer exists!");
+                                throw new Exception("After downloading the file " . $tmp_file . " no longer exists!");
                             }
                         }
                     } catch (Exception $ex) {
@@ -494,7 +502,7 @@ class DigitalCommonsScanBatchAWS extends DigitalCommonsScanBatchBase
                             $this->recurse_copy($full_object_path, "$TMP_DIR_FAIL/$object_id");
                             $this->recurse_rmdir($full_object_path);
                         }
-                        $this->logmsg("ERROR: ${tmp_file}  failed");
+                        $this->logmsg("ERROR: ${tmp_file}  failed with" . $ex->getMessage());
                         $this->addFailedObjectList($object_id);
                         continue;
 
