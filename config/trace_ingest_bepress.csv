@@ -1,6 +1,6 @@
 #aws_bucket_name, aws_filter_path, digital_commons_series_name, collection_namespace, collection_name, basex_bepress_mods_transform
 "bepress-small-test", "archive/trace.tennessee.edu", "utk_graddiss", "utk.ir", "td", "bepress-to-etd-mods.xq"
-#"bepress-small-test", "archive/trace.tennessee.edu", "democracy", "utk.ir", "dem", "bepress-everything-else-to-mods.xq"
+"bepress-small-test", "archive/trace.tennessee.edu", "democracy", "utk.ir", "dem", "bepress-everything-else-to-mods.xq"
 #"bepress-small-test", "archive/trace.tennessee.edu", "omsaconference", "utk.ir", "bic", "bepress-everything-else-to-mods.xq"
 #"bepress-small-test", "archive/trace.tennessee.edu", "utk_4hrfilmfest", "utk.ir", "nip-ff", "bepress-everything-else-to-mods.xq"
 #"bepress-small-test", "archive/trace.tennessee.edu", "utk_eureca", "utk.ir", "supug-eureca", "bepress-everything-else-to-mods.xq"
